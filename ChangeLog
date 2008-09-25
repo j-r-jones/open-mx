@@ -1,3 +1,15 @@
+Open-MX 1.0.0 (September 30th 2008, svn/open-mx-1.0.x r20xy)
+============================================================
+The first "stable" release.
+
+Improvements from previous release:
+* Miscellaneous minor fixes.
+
+Caveats:
+* No background progression or retransmission is done if the application
+  does not invoke an Open-MX routine explicitly.
+* Architectures with page size != 4kB are not supported yet.
+
 Open-MX 0.9.3 aka 1.0-rc3 (September 22th 2008, svn r2061)
 ==========================================================
 
@@ -7,11 +19,6 @@ Improvements from previous release:
 * Make headers C++ compliant.
 * Dump the driver status when reading /dev/open-mx,
   added to omx_init status.
-
-Caveats:
-* No background progression or retransmission is done if the application
-  does not invoke an Open-MX routine explicitly.
-* Architectures with page size != 4kB are not supported yet.
 
 Open-MX 0.9.2 aka 1.0-rc2 (September 8th 2008, svn r2040)
 =========================================================
