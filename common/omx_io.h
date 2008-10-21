@@ -32,7 +32,7 @@
  * or modified, or when the user-mapped driver- and endpoint-descriptors
  * are modified.
  */
-#define OMX_DRIVER_ABI_VERSION		0x151
+#define OMX_DRIVER_ABI_VERSION		0x160
 
 /************************
  * Common parameters or IOCTL subtypes
@@ -592,6 +592,7 @@ omx_strcmd(unsigned cmd)
 #define OMX_EVT_NONE			0x00
 #define OMX_EVT_SEND_MEDIUM_FRAG_DONE	0x01
 #define OMX_EVT_PULL_DONE		0x02
+#define OMX_EVT_IGNORE			0x03
 #define OMX_EVT_RECV_CONNECT		0x11
 #define OMX_EVT_RECV_TINY		0x12
 #define OMX_EVT_RECV_SMALL		0x13
@@ -623,6 +624,8 @@ omx_strevt(unsigned type)
 		return "Send Medium Fragment Done";
 	case OMX_EVT_PULL_DONE:
 		return "Pull Done";
+	case OMX_EVT_IGNORE:
+		return "Ignore";
 	case OMX_EVT_RECV_CONNECT:
 		return "Receive Connect";
 	case OMX_EVT_RECV_TINY:
