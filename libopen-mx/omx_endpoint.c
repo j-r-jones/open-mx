@@ -486,7 +486,7 @@ omx_open_endpoint(uint32_t board_index, uint32_t endpoint_index, uint32_t key,
   ret = omx__endpoint_large_region_map_init(ep);
   if (ret != OMX_SUCCESS) {
     ret = omx__error(ret, "Initializing new endpoint large region map");
-    goto out_with_userq_mmap;
+    goto out_with_message_prefix;
   }
 
   /* allocate partners */
@@ -565,7 +565,8 @@ omx_open_endpoint(uint32_t board_index, uint32_t endpoint_index, uint32_t key,
   free(ep->partners);
  out_with_large_regions:
   omx__endpoint_large_region_map_exit(ep);
- out_with_userq_mmap:
+ out_with_message_prefix:
+  free(ep->message_prefix);
   munmap(ep->desc, OMX_ENDPOINT_DESC_SIZE);
   munmap(ep->sendq, OMX_SENDQ_SIZE);
   munmap(ep->recvq, OMX_RECVQ_SIZE);
@@ -617,6 +618,7 @@ omx_close_endpoint(struct omx_endpoint *ep)
       free(ep->partners[i]);
   free(ep->partners);
   omx__endpoint_large_region_map_exit(ep);
+  free(ep->message_prefix);
   munmap(ep->desc, OMX_ENDPOINT_DESC_SIZE);
   munmap(ep->sendq, OMX_SENDQ_SIZE);
   munmap(ep->recvq, OMX_RECVQ_SIZE);
