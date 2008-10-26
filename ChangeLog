@@ -1,4 +1,4 @@
-Open-MX 1.0.1 (October 25th 2008, svn/open-mx-1.0.x r2131)
+Open-MX 1.0.1 (October 26th 2008, svn/open-mx-1.0.x r2131)
 ==========================================================
 Bug Fixes:
 * Fix cancelling of iconnect requests.
