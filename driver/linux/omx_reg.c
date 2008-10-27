@@ -1534,7 +1534,6 @@ omx_dma_copy_between_user_regions(struct omx_user_region * src_region, unsigned 
 	struct page **spage, **dpage; /* current page */
 	unsigned int spageoff, dpageoff; /* current offset in current page */
 	unsigned long spinlen, dpinlen; /* currently pinned length in region */
-	struct omx_user_region_pin_state dpinstate;
 	struct dma_chan *dma_chan = NULL;
 	dma_cookie_t dma_last_cookie = -1;
 	int ret = 0;
