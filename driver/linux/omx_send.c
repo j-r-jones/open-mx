@@ -600,27 +600,6 @@ omx_ioctl_send_rndv(struct omx_endpoint * endpoint,
 		return omx_shared_send_rndv(endpoint, &cmd, &((struct omx_cmd_send_rndv __user *) uparam)->data);
 #endif
 
-	if (omx_region_demand_pin) {
-		/* make sure the region is pinned */
-		struct omx_user_region * region;
-		struct omx_user_region_pin_state pinstate;
-
-		region = omx_user_region_acquire(endpoint, cmd.user_region_id_needed);
-		if (unlikely(!region)) {
-			ret = -EINVAL;
-			goto out;
-		}
-
-		omx_user_region_demand_pin_init(&pinstate, region);
-		pinstate.next_chunk_pages = omx_pin_chunk_pages_max;
-		ret = omx_user_region_demand_pin_finish(&pinstate); /* will be _or_parallel once we overlap here too */
-		omx_user_region_release(region);
-		if (ret < 0) {
-			dprintk(REG, "failed to pin user region\n");
-			goto out;
-		}
-	}
-
 	skb = omx_new_skb(/* pad to ETH_ZLEN */
 			  max_t(unsigned long, hdr_len + length, ETH_ZLEN));
 	if (unlikely(skb == NULL)) {

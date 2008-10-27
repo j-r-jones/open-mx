@@ -121,6 +121,8 @@ omx_user_region_destroy_segments(struct omx_user_region * region)
  * Region pinning
  */
 
+#define OMX_PIN_CHUNK_PAGES_NR 1024
+
 void
 omx__user_region_pin_init(struct omx_user_region_pin_state *pinstate,
 			  struct omx_user_region *region)
@@ -131,7 +133,6 @@ omx__user_region_pin_init(struct omx_user_region_pin_state *pinstate,
 	pinstate->aligned_vaddr = 0;
 	pinstate->remaining = 0;
 	pinstate->chunk_offset = 0;
-	pinstate->next_chunk_pages = omx_pin_chunk_pages_min;
 }
 
 static inline void
@@ -171,21 +172,12 @@ omx__user_region_pin_add_chunk(struct omx_user_region_pin_state *pinstate)
 	chunk_offset = pinstate->chunk_offset;
 
 	/* compute an estimated number of pages to pin */
-	chunk_pages = pinstate->next_chunk_pages;
-	/* increase the next number of pages to pin if below the max */
-	if (chunk_pages < omx_pin_chunk_pages_max) {
-		chunk_pages <<= 1;
-		if (chunk_pages > omx_pin_chunk_pages_max)
-			chunk_pages = omx_pin_chunk_pages_max;
-		pinstate->next_chunk_pages = chunk_pages;
-	}
-
+	chunk_pages = OMX_PIN_CHUNK_PAGES_NR;
 	/* compute the corresponding length */
 	if (chunk_offset + remaining <= chunk_pages<<PAGE_SHIFT)
 		chunk_length = remaining;
 	else
 		chunk_length = (chunk_pages<<PAGE_SHIFT) - chunk_offset;
-
 	/* compute the actual corresponding number of pages to pin */
 	chunk_pages = (chunk_offset + chunk_length + PAGE_SIZE-1) >> PAGE_SHIFT;
 
@@ -237,10 +229,6 @@ omx__user_region_pin_continue(struct omx_user_region_pin_state *pinstate,
 	unsigned long needed = *length;
 	int ret;
 
-#ifdef OMX_DRIVER_DEBUG
-	BUG_ON(region->status != OMX_USER_REGION_STATUS_PINNED);
-#endif
-
 	down_write(&current->mm->mmap_sem);
 	while (region->total_registered_length < needed) {
 		ret = omx__user_region_pin_add_chunk(pinstate);
@@ -253,7 +241,6 @@ omx__user_region_pin_continue(struct omx_user_region_pin_state *pinstate,
 
  out:
 	up_write(&current->mm->mmap_sem);
-	region->status = OMX_USER_REGION_STATUS_FAILED;
 	return ret;
 }
 
@@ -345,16 +332,13 @@ omx_ioctl_user_region_create(struct omx_endpoint * endpoint,
 	}
 
 	/* mark the region as non-registered yet */
-	region->status = OMX_USER_REGION_STATUS_NOT_PINNED;
 	region->total_registered_length = 0;
 
-	if (!omx_region_demand_pin) {
-		/* pin the region */
-		ret = omx_user_region_immediate_full_pin(region);
-		if (ret < 0) {
-			dprintk(REG, "failed to pin user region\n");
-			goto out_with_region;
-		}
+	/* pin the region */
+	ret = omx_user_region_immediate_full_pin(region);
+	if (ret < 0) {
+		dprintk(REG, "failed to pin user region\n");
+		goto out_with_region;
 	}
 
 	spin_lock(&endpoint->user_regions_lock);
@@ -1479,14 +1463,6 @@ omx_memcpy_between_user_regions_to_current(struct omx_user_region * src_region, 
 		if (chunk > dseglen - dsegoff)
 			chunk = dseglen - dsegoff;
 
-		if (omx_region_demand_pin && spinlen < soff + chunk) {
-			spinlen = soff + chunk;
-			ret = omx_user_region_parallel_pin_wait(src_region, &spinlen);
-			if (ret < 0)
-				return ret;
-		}
-		/* *spage is valid now */
-
 		dprintk(REG, "shared region copy of %d bytes from seg=%ld:page=%ld(%p):off=%d to seg=%ld:off=%ld\n",
 			chunk,
 			(unsigned long) (sseg-&src_region->segments[0]), (unsigned long) (spage-&sseg->pages[0]), *spage, spageoff,
@@ -1567,9 +1543,6 @@ omx_dma_copy_between_user_regions(struct omx_user_region * src_region, unsigned 
 	if (!dma_chan)
 		goto fallback;
 
-	if (omx_region_demand_pin)
-		omx_user_region_demand_pin_init(&dpinstate, dst_region);
-
 	dprintk(REG, "shared region copy of %ld bytes from region #%ld len %ld starting at %ld into region #%ld len %ld starting at %ld\n",
 		length,
 		(unsigned long) src_region->id, src_region->total_length, src_offset,
@@ -1613,30 +1586,6 @@ omx_dma_copy_between_user_regions(struct omx_user_region * src_region, unsigned 
 			chunk = PAGE_SIZE - dpageoff;
 		if (chunk > dseglen - dsegoff)
 			chunk = dseglen - dsegoff;
-
-		if (omx_region_demand_pin) {
-			if (spinlen < soff + chunk) {
-				spinlen = soff + chunk;
-				ret = omx_user_region_parallel_pin_wait(src_region, &spinlen);
-				if (ret < 0) {
-					/* failed to pin, no need to fallback to memcpy */
-					remaining = 0;
-					break;
-				}
-			}
-
-			if (dpinlen < doff + chunk) {
-				dpinlen = doff + chunk;
-				ret = omx_user_region_demand_pin_continue(&dpinstate, &dpinlen);
-				if (ret < 0)
-				if (ret < 0) {
-					/* failed to pin, no need to fallback to memcpy */
-					remaining = 0;
-					break;
-				}
-			}
-		}
-		/* *spage and *dpage are valid now */
 
 		dprintk(REG, "shared region copy of %d bytes from seg=%ld:page=%ld(%p):off=%d to seg=%ld:page=%ld(%p):off=%d\n",
 			chunk,
@@ -1697,13 +1646,6 @@ omx_dma_copy_between_user_regions(struct omx_user_region * src_region, unsigned 
 			dpageoff += chunk;
 		}
 	}
-
-	if (omx_region_demand_pin) {
-		omx_user_region_demand_pin_finish(&dpinstate);
-		/* ignore the return value, only the copy success matters */
-	}
-	/* either the region is entirely pinned, or not at all,
-	 * it's safe to fallback to memcpy if needed */
 
  fallback:
 	if (remaining) {

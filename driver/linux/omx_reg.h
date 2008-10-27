@@ -29,12 +29,6 @@
 struct omx_endpoint;
 struct sk_buff;
 
-enum omx_user_region_status {
-	OMX_USER_REGION_STATUS_NOT_PINNED,
-	OMX_USER_REGION_STATUS_PINNED, /* or being pinned */
-	OMX_USER_REGION_STATUS_FAILED,
-};
-
 struct omx_user_region {
 	uint32_t id;
 
@@ -47,8 +41,6 @@ struct omx_user_region {
 
 	unsigned nr_segments;
 	unsigned long total_length;
-
-	enum omx_user_region_status status;
 	unsigned long total_registered_length;
 
 	struct omx_user_region_segment {
@@ -142,142 +134,8 @@ omx_user_region_immediate_full_pin(struct omx_user_region * region)
 	struct omx_user_region_pin_state pinstate;
 	unsigned long needed = region->total_length;
 
-#ifdef OMX_DRIVER_DEBUG
-	BUG_ON(omx_region_demand_pin);
-	BUG_ON(region->status != OMX_USER_REGION_STATUS_NOT_PINNED);
-#endif
-	region->status = OMX_USER_REGION_STATUS_PINNED;
-
 	omx__user_region_pin_init(&pinstate, region);
 	return omx__user_region_pin_continue(&pinstate, &needed);
-}
-
-/*
- * when demand pinning is enabled,
- * wait for another guy to do enough pinning
- */
-static inline int
-omx_user_region_parallel_pin_wait(struct omx_user_region * region, unsigned long *length)
-{
-	unsigned long needed = *length;
-
-#ifdef OMX_DRIVER_DEBUG
-	BUG_ON(!omx_region_demand_pin);
-#endif
-
-	while (needed > region->total_registered_length
-	       && region->status == OMX_USER_REGION_STATUS_PINNED)
-		cpu_relax();
-
-	if (region->status == OMX_USER_REGION_STATUS_FAILED) {
-		return -EFAULT;
-	} else {
-		*length = region->total_registered_length;
-		return 0;
-	}
-}
-
-/*
- * when demand pinning is enabled,
- * start an actually pinning,
- * or make sure another guy is pinning
- */
-static inline void
-omx_user_region_demand_pin_init(struct omx_user_region_pin_state *pinstate,
-				struct omx_user_region * region)
-{
-#ifdef OMX_DRIVER_DEBUG
-	BUG_ON(!omx_region_demand_pin);
-#endif
-
-	if (cmpxchg(&region->status,
-		    OMX_USER_REGION_STATUS_NOT_PINNED,
-		    OMX_USER_REGION_STATUS_PINNED)) {
-		/* somebody already registered this region */
-		pinstate->region = region;
-		pinstate->watching = 1;
-	} else {
-		/* start the pinning ourself */
-		pinstate->watching = 0;
-		omx__user_region_pin_init(pinstate, region);
-	}
-
-	/* let the status be checked by the actual user later */
-}
-
-/*
- * when demand pinning is enabled,
- * continue an actually pinning,
- * or wait until another guy progressed enough
- */
-static inline int
-omx_user_region_demand_pin_continue(struct omx_user_region_pin_state *pinstate,
-				    unsigned long *length)
-{
-	struct omx_user_region *region = pinstate->region;
-
-	if (pinstate->watching) {
-		/* wait for the other guy to progress */
-		return omx_user_region_parallel_pin_wait(region, length);
-
-	} else {
-		/* continue our pinning */
-#ifdef OMX_DRIVER_DEBUG
-		BUG_ON(!omx_region_demand_pin);
-		BUG_ON(region->status != OMX_USER_REGION_STATUS_PINNED);
-#endif
-		return omx__user_region_pin_continue(pinstate, length);
-	}
-}
-
-/*
- * when demand pinning is enabled,
- * finish an actually pinning,
- * or wait until another guy finished
- */
-static inline int
-omx_user_region_demand_pin_finish(struct omx_user_region_pin_state *pinstate)
-{
-	struct omx_user_region *region = pinstate->region;
-	unsigned long needed = region->total_length;
-
-	if (pinstate->watching) {
-		/* wait for the other guy to be done */
-		return omx_user_region_parallel_pin_wait(region, &needed);
-
-	} else {
-		/* finish our pinning */
-#ifdef OMX_DRIVER_DEBUG
-		BUG_ON(!omx_region_demand_pin);
-		BUG_ON(pinstate->region->status != OMX_USER_REGION_STATUS_PINNED);
-#endif
-		return omx__user_region_pin_continue(pinstate, &needed);
-	}
-}
-
-/*
- * when demand pinning is enabled,
- * finish an actually pinning,
- * or make sure another guy is pinning (without waiting for its completion)
- */
-static inline int
-omx_user_region_demand_pin_finish_or_parallel(struct omx_user_region_pin_state *pinstate)
-{
-	struct omx_user_region *region = pinstate->region;
-	unsigned long needed = region->total_length;
-
-	if (pinstate->watching) {
-		/* let the other guy finish in parallel */
-		return 0;
-
-	} else {
-		/* finish our pinning */
-#ifdef OMX_DRIVER_DEBUG
-		BUG_ON(!omx_region_demand_pin);
-		BUG_ON(pinstate->region->status != OMX_USER_REGION_STATUS_PINNED);
-#endif
-		return omx__user_region_pin_continue(pinstate, &needed);
-	}
 }
 
 #endif /* __omx_region_h__ */

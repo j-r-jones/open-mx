@@ -61,18 +61,6 @@ int omx_skb_copy_max = 0;
 module_param_named(skbcopy, omx_skb_copy_max, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(skbcopy, "Maximum length of data to copy in linear skb instead of attaching pages");
 
-int omx_region_demand_pin = 0;
-module_param_named(demandpin, omx_region_demand_pin, uint, S_IRUGO); /* not writable to simplify things */
-MODULE_PARM_DESC(demandpin, "Defer region pinning until really needed and use demand-pinning");
-
-int omx_pin_chunk_pages_min = 1;
-module_param_named(pinchunkmin, omx_pin_chunk_pages_min, uint, S_IRUGO|S_IWUSR);
-MODULE_PARM_DESC(pinchunkmin, "Minimum number of pages to pin at once");
-
-int omx_pin_chunk_pages_max = 1024;
-module_param_named(pinchunkmax, omx_pin_chunk_pages_max, uint, S_IRUGO|S_IWUSR);
-MODULE_PARM_DESC(pinchunkmax, "Maximum number of pages to pin at once");
-
 int omx_pin_invalidate = 0;
 module_param_named(pininvalidate, omx_pin_invalidate, uint, S_IRUGO);
 MODULE_PARM_DESC(pininvalidate, "User region pin invalidating when MMU notifiers are supported");
@@ -260,17 +248,6 @@ omx_get_driver_string(unsigned int *lenp)
 	len = snprintf(tmp, OMX_DRIVER_STRING_LEN-buflen,
 		" SharedComms: %s\n",
 		omx_driver_userdesc->features & OMX_DRIVER_FEATURE_SHARED ? "Enabled" : "Disabled");
-	tmp += len;
-	buflen += len;
-
-	if (omx_region_demand_pin)
-		len = snprintf(tmp, OMX_DRIVER_STRING_LEN-buflen,
-			" Pinning: OnDemand ChunkPagesMin=%ld Max=%ld\n",
-			(unsigned long) omx_pin_chunk_pages_min,
-			(unsigned long) omx_pin_chunk_pages_max);
-	else
-		len = snprintf(tmp, OMX_DRIVER_STRING_LEN-buflen,
-			" Pinning: Immediate\n");
 	tmp += len;
 	buflen += len;
 

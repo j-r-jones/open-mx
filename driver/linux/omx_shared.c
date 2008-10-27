@@ -380,8 +380,6 @@ omx_shared_send_rndv(struct omx_endpoint *src_endpoint,
 {
 	struct omx_endpoint * dst_endpoint;
 	struct omx_evt_recv_msg event;
-	struct omx_user_region * src_region = NULL;
-	struct omx_user_region_pin_state pinstate;
 	int err;
 
 	dst_endpoint = omx_shared_get_endpoint_or_notify_nack(src_endpoint, hdr->peer_index,
@@ -406,41 +404,19 @@ omx_shared_send_rndv(struct omx_endpoint *src_endpoint,
 		goto out_with_endpoint;
 	}
 
-	/* make sure the region is marked as pinning before reporting the event */
-	if (omx_region_demand_pin) {
-		src_region = omx_user_region_acquire(src_endpoint, hdr->user_region_id_needed);
-		if (unlikely(!src_region)) {
-			err = -EINVAL;
-			goto out_with_endpoint;
-		}
-		omx_user_region_demand_pin_init(&pinstate, src_region);
-	}
-
 	/* notify the event */
 	err = omx_notify_unexp_event(dst_endpoint, OMX_EVT_RECV_RNDV, &event, sizeof(event));
 	if (unlikely(err < 0)) {
 		/* no more unexpected eventq slot? just drop the packet, it will be resent anyway */
 		err = 0;
-		goto out_with_region;
+		goto out_with_endpoint;
 	}
 	omx_endpoint_release(dst_endpoint);
 
 	omx_counter_inc(omx_shared_fake_iface, SHARED_RNDV);
 
-	if (src_region) {
-		/* make sure the region is getting pinned now */
-		omx_user_region_demand_pin_finish(&pinstate);
-		omx_user_region_release(src_region);
-	}
-
 	return 0;
 
- out_with_region:
-	if (src_region) {
-		/* make sure the region is getting pinned anyway */
-		omx_user_region_demand_pin_finish(&pinstate);
-		omx_user_region_release(src_region);
-	}
  out_with_endpoint:
 	omx_endpoint_release(dst_endpoint);
 	return err;
