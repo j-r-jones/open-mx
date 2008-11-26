@@ -846,9 +846,6 @@ omx__isend_req(struct omx_endpoint *ep, struct omx__partner *partner,
 		    (unsigned) OMX__SEQNUM(partner->next_send_seq),
 		    (unsigned) OMX__SESNUM_SHIFTED(partner->next_send_seq));
 
-  if (unlikely(!requestp))
-    req->generic.state |= OMX_REQUEST_STATE_ZOMBIE;
-
 #ifndef OMX_DISABLE_SELF
   if (unlikely(omx__globals.selfcomms && partner == ep->myself)) {
     omx__process_self_send(ep, req);
@@ -872,7 +869,7 @@ omx__isend_req(struct omx_endpoint *ep, struct omx__partner *partner,
   if (requestp) {
     *requestp = req;
   } else {
-    ep->zombies++;
+    omx__forget(ep, req);
   }
 
   /* progress a little bit */
@@ -978,9 +975,6 @@ omx__issend_req(struct omx_endpoint *ep, struct omx__partner *partner,
 		    (unsigned) OMX__SEQNUM(partner->next_send_seq),
 		    (unsigned) OMX__SESNUM_SHIFTED(partner->next_send_seq));
 
-  if (unlikely(!requestp))
-    req->generic.state |= OMX_REQUEST_STATE_ZOMBIE;
-
 #ifndef OMX_DISABLE_SELF
   if (unlikely(omx__globals.selfcomms && partner == ep->myself)) {
     omx__process_self_send(ep, req);
@@ -991,7 +985,7 @@ omx__issend_req(struct omx_endpoint *ep, struct omx__partner *partner,
   if (requestp) {
     *requestp = req;
   } else {
-    ep->zombies++;
+    omx__forget(ep, req);
   }
 
   /* progress a little bit */
