@@ -65,6 +65,10 @@ int omx_pin_invalidate = 0;
 module_param_named(pininvalidate, omx_pin_invalidate, uint, S_IRUGO);
 MODULE_PARM_DESC(pininvalidate, "User region pin invalidating when MMU notifiers are supported");
 
+unsigned long omx_user_rights = 0;
+module_param_named(userrights, omx_user_rights, ulong, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(userrights, "Mask of privileged operation rights that are granted regular users");
+
 #ifdef CONFIG_NET_DMA
 int omx_dmaengine = 0; /* disabled by default for now */
 module_param_call(dmaengine, omx_set_dmaengine, param_get_uint, &omx_dmaengine, S_IRUGO|S_IWUSR);
