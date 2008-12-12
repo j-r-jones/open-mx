@@ -538,7 +538,7 @@ omx_mmu_invalidate_handler(struct omx_endpoint *endpoint, void *data)
 			printk(KERN_INFO "Open-MX: WARNING: region #%d on endpoint #%d iface #%s (%s) is being invalidated\n"
 			       KERN_INFO "Open-MX:   segment #%ld (0x%lx-0x%lx) within range 0x%lx-0x%lx\n",
 			       ireg, endpoint->endpoint_index, iface->eth_ifp->name, iface->peer.hostname,
-			       invalid_seg-&region->segments[0], seg_start, seg_end, inv_start, inv_end);
+			       (unsigned long) (invalid_seg-&region->segments[0]), seg_start, seg_end, inv_start, inv_end);
 		}
 	}
 
