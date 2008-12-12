@@ -162,9 +162,10 @@ static struct task_struct * omx_kthread_task = NULL;
 static void
 omx_driver_userdesc_update_handler(unsigned long data)
 {
-	omx_driver_userdesc->jiffies = jiffies;
+	u64 current_jiffies = get_jiffies_64();
+	omx_driver_userdesc->jiffies = current_jiffies;
 	wmb();
-	__mod_timer(&omx_driver_userdesc_update_timer, jiffies+1);
+	__mod_timer(&omx_driver_userdesc_update_timer, current_jiffies + 1);
 }
 
 static int
@@ -320,7 +321,7 @@ omx_init(void)
 	omx_driver_userdesc->endpoint_max = omx_endpoint_max;
 	omx_driver_userdesc->peer_max = omx_peer_max;
 	omx_driver_userdesc->hz = HZ;
-	omx_driver_userdesc->jiffies = jiffies;
+	omx_driver_userdesc->jiffies = get_jiffies_64();
 	omx_driver_userdesc->peer_table_configured = 0;
 	omx_driver_userdesc->peer_table_version = 0;
 	omx_driver_userdesc->peer_table_size = 0;
@@ -365,7 +366,7 @@ omx_init(void)
 
 	/* setup a timer to update jiffies in the driver user descriptor */
 	setup_timer(&omx_driver_userdesc_update_timer, omx_driver_userdesc_update_handler, 0);
-	__mod_timer(&omx_driver_userdesc_update_timer, jiffies+1);
+	__mod_timer(&omx_driver_userdesc_update_timer, get_jiffies_64() + 1);
 
 	ret = omx_dma_init();
 	if (ret < 0)
