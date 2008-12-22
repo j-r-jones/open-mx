@@ -1,4 +1,4 @@
-Open-MX 1.0.3 (December xxth 2008, svn/open-mx-1.0.x r22xy)
+Open-MX 1.0.3 (December 22nd 2008, svn/open-mx-1.0.x r2219)
 ===========================================================
 Bug Fixes:
 * Fix kernel timing on some 32bits architectures that could lead
