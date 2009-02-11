@@ -288,7 +288,7 @@ omx_shared_send_medium(struct omx_endpoint *src_endpoint,
 	struct omx_evt_recv_msg dst_event;
 	struct omx_evt_send_medium_frag_done src_event;
 	unsigned long recvq_offset;
-#ifdef CONFIG_NET_DMA
+#ifdef OMX_HAVE_DMA_ENGINE
 	dma_cookie_t dma_cookie = -1;
 	struct dma_chan *dma_chan = NULL;
 #endif
@@ -312,9 +312,9 @@ omx_shared_send_medium(struct omx_endpoint *src_endpoint,
 	}
 
 	/* copy the data */
-#ifdef CONFIG_NET_DMA
+#ifdef OMX_HAVE_DMA_ENGINE
 	if (omx_dmaengine && frag_length >= omx_dma_sync_min)
-		dma_chan = get_softnet_dma();
+		dma_chan = omx_dma_chan_get();
 	if (dma_chan) {
 		dma_cookie = dma_async_memcpy_pg_to_pg(dma_chan,
 						       dst_endpoint->recvq_pages[recvq_offset >> PAGE_SHIFT], 0,
@@ -343,13 +343,13 @@ omx_shared_send_medium(struct omx_endpoint *src_endpoint,
 	dst_event.specific.medium.recvq_offset = recvq_offset;
 
 	/* make sure the copy is done */
-#ifdef CONFIG_NET_DMA
+#ifdef OMX_HAVE_DMA_ENGINE
 	if (dma_chan) {
 		if (dma_cookie > 0) {
 			while (dma_async_memcpy_complete(dma_chan, dma_cookie, NULL, NULL) == DMA_IN_PROGRESS);
 			omx_counter_inc(omx_shared_fake_iface, SHARED_DMA_MEDIUM_FRAG);
 		}
-		dma_chan_put(dma_chan);
+		omx_dma_chan_put(dma_chan);
 	}
 #endif
 

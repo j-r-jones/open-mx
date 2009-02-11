@@ -17,7 +17,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/dmaengine.h>
 #include <linux/rcupdate.h>
 
 #include "omx_common.h"
@@ -25,10 +24,12 @@
 #include "omx_reg.h"
 #include "omx_dma.h"
 
+#ifdef OMX_HAVE_DMA_ENGINE
+
 static INLINE void
 omx_dma_display_support(void)
 {
-	if (__get_cpu_var(softnet_data).net_dma)
+	if (omx_dma_chan_avail())
 		printk(KERN_INFO "Open-MX: DMA engine support present, with some channels available\n");
 	else
 		printk(KERN_INFO "Open-MX: DMA engine support present, with no channels available so far\n");
@@ -278,6 +279,8 @@ omx_dma_skb_copy_datagram_to_user_region(struct dma_chan *chan, dma_cookie_t *co
 
 	return omx__dma_skb_copy_datagram_to_user_region(&regcache, chan, cookiep, skb, skb_offset, len);
 }
+
+#endif /* OMX_HAVE_DMA_ENGINE */
 
 /*
  * Local variables:

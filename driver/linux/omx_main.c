@@ -69,7 +69,7 @@ unsigned long omx_user_rights = 0;
 module_param_named(userrights, omx_user_rights, ulong, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(userrights, "Mask of privileged operation rights that are granted regular users");
 
-#ifdef CONFIG_NET_DMA
+#ifdef OMX_HAVE_DMA_ENGINE
 int omx_dmaengine = 0; /* disabled by default for now */
 module_param_call(dmaengine, omx_set_dmaengine, param_get_uint, &omx_dmaengine, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(dmaengine, "Enable DMA engine support");
@@ -85,7 +85,7 @@ MODULE_PARM_DESC(dmaasyncmin, "Minimum message length to offload all fragment co
 int omx_dma_sync_min = 2*1024*1024;
 module_param_named(dmasyncmin, omx_dma_sync_min, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(dmasyncmin, "Minimum length to offload synchronous copy on DMA engine");
-#endif /* CONFIG_NET_DMA */
+#endif /* OMX_HAVE_DMA_ENGINE */
 
 int omx_copybench = 0;
 module_param_named(copybench, omx_copybench, uint, S_IRUGO);
@@ -267,7 +267,7 @@ omx_get_driver_string(unsigned int *lenp)
 	tmp += len;
 	buflen += len;
 
-#ifdef CONFIG_NET_DMA
+#ifdef OMX_HAVE_DMA_ENGINE
 	if (omx_dmaengine)
 		len = snprintf(tmp, OMX_DRIVER_STRING_LEN-buflen,
 			" DMAEngine: KernelSupported Enabled SyncCopyMin=%dB AsyncCopyMin=%dB (%dB per packet)\n",
