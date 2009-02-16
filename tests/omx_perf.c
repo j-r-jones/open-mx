@@ -351,6 +351,13 @@ int main(int argc, char *argv[])
 	length < max;
 	length = next_length(length, multiplier, increment)) {
 
+      for(i=0; i<iter+warmup; i++) {
+	if (verbose)
+	  printf("Iteration %d/%d\n", i-warmup, iter);
+
+	if (i == warmup)
+	  gettimeofday(&tv1, NULL);
+
       if (align) {
 	sendbuffer = memalign(BUFFER_ALIGN, length);
 	recvbuffer = memalign(BUFFER_ALIGN, length);
@@ -362,13 +369,8 @@ int main(int argc, char *argv[])
 	perror("buffer malloc");
 	goto out_with_ep;
       }
-
-      for(i=0; i<iter+warmup; i++) {
-	if (verbose)
-	  printf("Iteration %d/%d\n", i-warmup, iter);
-
-	if (i == warmup)
-	  gettimeofday(&tv1, NULL);
+      memset(sendbuffer, 0, length);
+      memset(recvbuffer, 0, length);
 
 	/* sending a message */
 	ret = omx_isend_or_issend(sync,
@@ -413,6 +415,9 @@ int main(int argc, char *argv[])
 		  goto out_with_ep;
 	}
 
+      free(sendbuffer);
+      free(recvbuffer);
+
       }
       if (verbose)
 	printf("Iteration %d/%d\n", i-warmup, iter);
@@ -424,9 +429,6 @@ int main(int argc, char *argv[])
       printf("length % 9lld:\t%.3f us\t%.2f MB/s\t %.2f MiB/s\n",
 	     length, ((float) us)/(2.-unidir)/iter,
 	     (2.-unidir)*iter*length/us, (2.-unidir)*iter*length/us/1.048576);
-
-      free(sendbuffer);
-      free(recvbuffer);
 
       usleep(pause_ms * 1000);
     }
@@ -540,6 +542,10 @@ int main(int argc, char *argv[])
 	length < max;
 	length = next_length(length, multiplier, increment)) {
 
+      for(i=0; i<iter+warmup; i++) {
+	if (verbose)
+	  printf("Iteration %d/%d\n", i-warmup, iter);
+
       if (align) {
 	sendbuffer = memalign(BUFFER_ALIGN, length);
 	recvbuffer = memalign(BUFFER_ALIGN, length);
@@ -551,10 +557,8 @@ int main(int argc, char *argv[])
 	perror("buffer malloc");
 	goto out_with_ep;
       }
-
-      for(i=0; i<iter+warmup; i++) {
-	if (verbose)
-	  printf("Iteration %d/%d\n", i-warmup, iter);
+      memset(sendbuffer, 0, length);
+      memset(recvbuffer, 0, length);
 
 	/* wait for an incoming message */
 	ret = omx_irecv(ep, sendbuffer, length,
@@ -598,12 +602,12 @@ int main(int argc, char *argv[])
 		  omx_strerror(status.code));
 		  goto out_with_ep;
 	}
-      }
-      if (verbose)
-	printf("Iteration %d/%d\n", i-warmup, iter);
 
       free(sendbuffer);
       free(recvbuffer);
+      }
+      if (verbose)
+	printf("Iteration %d/%d\n", i-warmup, iter);
     }
 
     if (slave) {
