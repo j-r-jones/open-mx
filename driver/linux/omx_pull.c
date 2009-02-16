@@ -861,6 +861,7 @@ omx_ioctl_pull(struct omx_endpoint * endpoint,
 	struct sk_buff * skb, * skbs[] = { [0 ... OMX_PULL_BLOCK_DESCS_NR-1] = NULL };
 	uint32_t block_length;
 	uint32_t pulled_rdma_offset_in_frame;
+	struct omx_user_region_pin_state pinstate;
 	int i;
 	int err = 0;
 
@@ -884,16 +885,20 @@ omx_ioctl_pull(struct omx_endpoint * endpoint,
 	}
 
 	if (!omx_pin_synchronous) {
-		/* make sure the region is pinned */
-		struct omx_user_region_pin_state pinstate;
-
 		omx_user_region_demand_pin_init(&pinstate, region);
-		pinstate.next_chunk_pages = omx_pin_chunk_pages_max;
-		err = omx_user_region_demand_pin_finish(&pinstate);
-		/* FIXME: deal with omx_pin_progressive (will be _or_parallel) */
-		if (err < 0) {
-			dprintk(REG, "failed to pin user region\n");
-			goto out_with_region;
+		if (!omx_pin_progressive) {
+			pinstate.next_chunk_pages = omx_pin_chunk_pages_max;
+			err = omx_user_region_demand_pin_finish(&pinstate);
+			if (err < 0) {
+				dprintk(REG, "failed to pin user region\n");
+				goto out_with_region;
+			}
+#ifdef OMX_DEMAND_PIN_WARMUP
+		} else {
+			/* pin a little bit, just in case */
+			unsigned long dummy = min(OMX_PULL_REPLY_LENGTH_MAX*OMX_PULL_REPLY_PER_BLOCK*OMX_PULL_BLOCK_DESCS_NR, region->total_length);
+			omx_user_region_demand_pin_continue(&pinstate, &dummy);
+#endif
 		}
 	}
 
@@ -961,9 +966,16 @@ omx_ioctl_pull(struct omx_endpoint * endpoint,
 		if (likely(skbs[i]))
 			omx_queue_xmit(iface, skbs[i], PULL_REQ);
 
+	if (omx_pin_progressive)
+		omx_user_region_demand_pin_finish(&pinstate);
+
 	return 0;
 
  out_with_region:
+	if (omx_pin_progressive) {
+		pinstate.next_chunk_pages = omx_pin_chunk_pages_max;
+		omx_user_region_demand_pin_finish(&pinstate);
+	}
 	omx_user_region_release(region);
  out:
 	return err;
@@ -1214,6 +1226,20 @@ omx_recv_pull_request(struct omx_iface * iface,
 		- (pulled_rdma_offset % OMX_PULL_REPLY_LENGTH_MAX) /* hide the first frames that ignored in this pull since we want an actual msg offset */
 		+ first_frame_offset;
 	block_remaining_length = block_length;
+
+	/* check if the region is pinned enough */
+	if (omx_pin_progressive) {
+		/* FIXME: nack if failed */
+		if (region->total_registered_length < current_msg_offset + pulled_rdma_offset + block_length) {
+			printk("pull request pin-overlap miss %ld/%ld < %ld=%ld+%ld\n",
+			       (unsigned long) region->total_registered_length,
+			       (unsigned long) region->total_length,
+			       (unsigned long) current_msg_offset + pulled_rdma_offset + block_length,
+			       (unsigned long) current_msg_offset,
+			       (unsigned long) pulled_rdma_offset + block_length);
+			goto out_with_region;
+		}
+	}
 
 	/* initialize the region offset cache and check length/offset */
 	err = omx_user_region_offset_cache_init(region, &region_cache,
@@ -1760,6 +1786,22 @@ omx_recv_pull_reply(struct omx_iface * iface,
 		omx_pull_handle_release(handle);
 		err = 0;
 		goto out_with_endpoint;
+	}
+
+	/* FIXME: must be before updating the bitmask, but is fine here? */
+	if (omx_pin_progressive) {
+		/* FIXME: nack if failed ? */
+		if (handle->region->total_registered_length < msg_offset + frame_length) {
+ 			printk("pull reply pin-overlap miss %ld/%ld < %ld=%ld+%ld\n",
+			       (unsigned long) handle->region->total_registered_length,
+			       (unsigned long) handle->region->total_length,
+			       (unsigned long) msg_offset + frame_length,
+			       (unsigned long) msg_offset,
+			       (unsigned long) frame_length);
+			spin_unlock(&handle->lock);
+			omx_pull_handle_release(handle);
+			goto out_with_endpoint;
+		}
 	}
 
 	/* check that the frame is not a duplicate */

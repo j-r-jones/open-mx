@@ -747,6 +747,8 @@ omx_ioctl_send_rndv(struct omx_endpoint * endpoint,
 	struct omx_cmd_send_rndv_hdr cmd;
 	struct omx_iface * iface = endpoint->iface;
 	struct net_device * ifp = iface->eth_ifp;
+	struct omx_user_region * region = NULL;
+	struct omx_user_region_pin_state pinstate;
 	size_t hdr_len = sizeof(struct omx_pkt_head) + sizeof(struct omx_pkt_msg);
 	char * data;
 	int ret;
@@ -773,10 +775,6 @@ omx_ioctl_send_rndv(struct omx_endpoint * endpoint,
 #endif
 
 	if (!omx_pin_synchronous) {
-		/* make sure the region is pinned */
-		struct omx_user_region * region;
-		struct omx_user_region_pin_state pinstate;
-
 		region = omx_user_region_acquire(endpoint, cmd.user_region_id_needed);
 		if (unlikely(!region)) {
 			ret = -EINVAL;
@@ -784,13 +782,21 @@ omx_ioctl_send_rndv(struct omx_endpoint * endpoint,
 		}
 
 		omx_user_region_demand_pin_init(&pinstate, region);
-		pinstate.next_chunk_pages = omx_pin_chunk_pages_max;
-		ret = omx_user_region_demand_pin_finish(&pinstate);
-		/* FIXME: deal with omx_pin_progressive (will be _or_parallel) */
-		omx_user_region_release(region);
-		if (ret < 0) {
-			dprintk(REG, "failed to pin user region\n");
-			goto out;
+		if (!omx_pin_progressive) {
+			pinstate.next_chunk_pages = omx_pin_chunk_pages_max;
+			ret = omx_user_region_demand_pin_finish(&pinstate);
+			omx_user_region_release(region);
+			region = NULL;
+			if (ret < 0) {
+				dprintk(REG, "failed to pin user region\n");
+				goto out;
+			}
+#ifdef OMX_DEMAND_PIN_WARMUP
+		} else {
+			/* pin a little bit, just in case */
+			unsigned long dummy = min(OMX_PULL_REPLY_LENGTH_MAX*OMX_PULL_REPLY_PER_BLOCK*OMX_PULL_BLOCK_DESCS_NR, region->total_length);
+			omx_user_region_demand_pin_continue(&pinstate, &dummy);
+#endif
 		}
 	}
 
@@ -843,11 +849,29 @@ omx_ioctl_send_rndv(struct omx_endpoint * endpoint,
 
 	omx_queue_xmit(iface, skb, RNDV);
 
+	if (region) {
+		/* make sure the region is getting pinned now */
+                omx_user_region_demand_pin_finish(&pinstate);
+                /* ignore errors, the rndv is gone anyway,
+                 * the pull will be aborted
+                 */
+                omx_user_region_release(region);
+	}
+
 	return 0;
 
  out_with_skb:
 	kfree_skb(skb);
  out:
+	if (region) {
+                /* make sure the region is getting pinned anyway */
+                pinstate.next_chunk_pages = omx_pin_chunk_pages_max;
+                omx_user_region_demand_pin_finish(&pinstate);
+                /* ignore errors, the rndv is gone anyway,
+                 * the pull will be aborted
+                 */
+                omx_user_region_release(region);
+	}
 	return ret;
 }
 
