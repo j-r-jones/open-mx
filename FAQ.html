@@ -428,7 +428,7 @@ rate. The required MTU is then 8224.
 
 <p>
 It is also possible to force Open-MX to work with MTU 1500
-(by passing <tt>--disable-mx-wire --enable-mtu-1500</tt> to
+(by passing <tt>--disable-mx-wire --with-mtu=1500</tt> to
 the configure script).
 However, this option is not recommended for bandwidth
 intensive applications.
@@ -1610,7 +1610,7 @@ The following options may be passed to the configure command line before buildin
   The wire protocol is compatible with Myrinet Express over Ethernet by default.
 </dd>
 
-<dt>--enable-mtu-1500</dt>
+<dt>--with-mtu=1500</dt>
 <dd>Enable support for 1500-bytes MTU fabric.
   This may reduce large message throughput.
 </dd>
