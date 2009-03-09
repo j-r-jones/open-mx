@@ -376,7 +376,7 @@ AC_ARG_ENABLE(mx-wire,
 AC_MSG_CHECKING(if MX wire compatibility is enabled)
 if test x$enable_mx_wire = xyes; then
   AC_MSG_RESULT(yes)
-  AC_DEFINE(OMX_MX_WIRE_COMPAT, 1, [Define to enable MX API compatibility wrappers])
+  AC_DEFINE(OMX_MX_WIRE_COMPAT, 1, [Define to enable MX wire compatibility])
 else
   AC_MSG_RESULT(no)
 fi

@@ -588,7 +588,7 @@ A user-space library manages MPI-like requests and passes them
 to the Open-MX driver which maps them directly onto the software
 Ethernet layer of the Linux kernel.
 Packets are sent/received through the underlying (unmodified)
-driver in a MX-wire-compatible way.
+driver in a MX-similar way.
 </p>
 
 
@@ -1437,7 +1437,7 @@ ready.
 </a></h4>
 <p>
 You have to make sure that the same peer discovery program (or "mapper")
-is used on both sides. by default, MX uses the FMA by default. So the
+is used on both sides. By default, MX uses the FMA by default. So the
 FMA source should be unpacked as a "fma" subdirectory of the Open-MX
 source so that the configure script will enable FMA by default instead
 of omxoed for dynamic peer discovery.
