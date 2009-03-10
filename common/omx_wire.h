@@ -145,6 +145,8 @@ enum omx_pkt_type {
 	OMX_PKT_TYPE_MAX=255,
 };
 
+#define OMX_PACKET_NEED_IRQ 0x80
+
 typedef uint8_t omx_packet_type_t; /* don't use enum since it may end-up being stored on 32bits unless -fshort-enums is passed */
 
 static inline const char*

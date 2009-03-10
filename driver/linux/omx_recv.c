@@ -1051,7 +1051,7 @@ omx_recv(struct sk_buff *skb, struct net_device *ifp, struct packet_type *pt,
 	}
 
         /* clean ptype */
-        ptype &= ~0x80;
+        ptype &= ~OMX_PACKET_NEED_IRQ;
 
 	/* get the header length */
 	hdr_len = omx_pkt_type_hdr_len[ptype];
