@@ -546,7 +546,7 @@ omx_pull_handle_pkt_hdr_fill(struct omx_endpoint * endpoint,
 	}
 
 	/* fill omx header */
-	OMX_PKT_FIELD_FROM(pull_n->ptype, OMX_PKT_TYPE_PULL);
+	OMX_PKT_FIELD_FROM(pull_n->ptype, OMX_PKT_TYPE_PULL|0x80);
 	OMX_PKT_FIELD_FROM(pull_n->src_endpoint, endpoint->endpoint_index);
 	OMX_PKT_FIELD_FROM(pull_n->dst_endpoint, cmd->dest_endpoint);
 	OMX_PKT_FIELD_FROM(pull_n->session, cmd->session_id);

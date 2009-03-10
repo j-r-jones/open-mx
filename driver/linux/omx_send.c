@@ -345,7 +345,7 @@ omx_ioctl_send_tiny(struct omx_endpoint * endpoint,
 	/* fill omx header */
 	OMX_PKT_FIELD_FROM(tiny_n->src_endpoint, endpoint->endpoint_index);
 	OMX_PKT_FIELD_FROM(tiny_n->dst_endpoint, cmd.dest_endpoint);
-	OMX_PKT_FIELD_FROM(tiny_n->ptype, OMX_PKT_TYPE_TINY);
+	OMX_PKT_FIELD_FROM(tiny_n->ptype, OMX_PKT_TYPE_TINY|0x80);
 	OMX_PKT_FIELD_FROM(tiny_n->length, length);
 	OMX_PKT_FIELD_FROM(tiny_n->lib_seqnum, cmd.seqnum);
 	OMX_PKT_FIELD_FROM(tiny_n->lib_piggyack, cmd.piggyack);
@@ -441,7 +441,7 @@ omx_ioctl_send_small(struct omx_endpoint * endpoint,
 	/* fill omx header */
 	OMX_PKT_FIELD_FROM(small_n->src_endpoint, endpoint->endpoint_index);
 	OMX_PKT_FIELD_FROM(small_n->dst_endpoint, cmd.dest_endpoint);
-	OMX_PKT_FIELD_FROM(small_n->ptype, OMX_PKT_TYPE_SMALL);
+	OMX_PKT_FIELD_FROM(small_n->ptype, OMX_PKT_TYPE_SMALL|0x80);
 	OMX_PKT_FIELD_FROM(small_n->length, length);
 	OMX_PKT_FIELD_FROM(small_n->lib_seqnum, cmd.seqnum);
 	OMX_PKT_FIELD_FROM(small_n->lib_piggyack, cmd.piggyack);
@@ -889,7 +889,7 @@ omx_ioctl_send_rndv(struct omx_endpoint * endpoint,
 	/* fill omx header */
 	OMX_PKT_FIELD_FROM(rndv_n->msg.src_endpoint, endpoint->endpoint_index);
 	OMX_PKT_FIELD_FROM(rndv_n->msg.dst_endpoint, cmd.dest_endpoint);
-	OMX_PKT_FIELD_FROM(rndv_n->msg.ptype, OMX_PKT_TYPE_RNDV);
+	OMX_PKT_FIELD_FROM(rndv_n->msg.ptype, OMX_PKT_TYPE_RNDV|0x80);
 	OMX_PKT_FIELD_FROM(rndv_n->msg.length, OMX_PKT_RNDV_DATA_LENGTH);
 	OMX_PKT_FIELD_FROM(rndv_n->msg.lib_seqnum, cmd.seqnum);
 	OMX_PKT_FIELD_FROM(rndv_n->msg.lib_piggyack, cmd.piggyack);
@@ -965,7 +965,7 @@ omx_ioctl_send_notify(struct omx_endpoint * endpoint,
 	/* fill omx header */
 	OMX_PKT_FIELD_FROM(notify_n->src_endpoint, endpoint->endpoint_index);
 	OMX_PKT_FIELD_FROM(notify_n->dst_endpoint, cmd.dest_endpoint);
-	OMX_PKT_FIELD_FROM(notify_n->ptype, OMX_PKT_TYPE_NOTIFY);
+	OMX_PKT_FIELD_FROM(notify_n->ptype, OMX_PKT_TYPE_NOTIFY|0x80);
 	OMX_PKT_FIELD_FROM(notify_n->total_length, cmd.total_length);
 	OMX_PKT_FIELD_FROM(notify_n->lib_seqnum, cmd.seqnum);
 	OMX_PKT_FIELD_FROM(notify_n->lib_piggyack, cmd.piggyack);
