@@ -627,7 +627,10 @@ omx_ioctl_send_mediumsq_frag(struct omx_endpoint * endpoint,
 	/* fill omx header */
 	OMX_PKT_FIELD_FROM(medium_n->msg.src_endpoint, endpoint->endpoint_index);
 	OMX_PKT_FIELD_FROM(medium_n->msg.dst_endpoint, cmd.dest_endpoint);
-	OMX_PKT_FIELD_FROM(medium_n->msg.ptype, OMX_PKT_TYPE_MEDIUM);
+	if (cmd.is_last)
+		OMX_PKT_FIELD_FROM(medium_n->msg.ptype, OMX_PKT_TYPE_MEDIUM|0x80);
+	else
+		OMX_PKT_FIELD_FROM(medium_n->msg.ptype, OMX_PKT_TYPE_MEDIUM);
 	OMX_PKT_FIELD_FROM(medium_n->msg.length, cmd.msg_length);
 	OMX_PKT_FIELD_FROM(medium_n->msg.lib_seqnum, cmd.seqnum);
 	OMX_PKT_FIELD_FROM(medium_n->msg.lib_piggyack, cmd.piggyack);

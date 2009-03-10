@@ -325,6 +325,9 @@ struct omx_cmd_send_mediumsq_frag {
 	/* 24 */
 	uint64_t match_info;
 	/* 32 */
+	uint8_t is_last;
+	uint8_t pad[7];
+	/* 40 */
 };
 
 struct omx_cmd_send_mediumva {

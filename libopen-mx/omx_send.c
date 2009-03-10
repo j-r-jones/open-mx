@@ -453,6 +453,7 @@ omx__post_isend_mediumsq(struct omx_endpoint *ep,
       if (likely(!req->generic.resends))
 	memcpy(ep->sendq + (sendq_index[i] << OMX_SENDQ_ENTRY_SHIFT), data + offset, chunk);
 
+      medium_param->is_last = (i==frags_nr-1);
       err = ioctl(ep->fd, OMX_CMD_SEND_MEDIUMSQ_FRAG, medium_param);
       if (unlikely(err < 0)) {
 	/* finish copying frags if not done already */
@@ -490,6 +491,7 @@ omx__post_isend_mediumsq(struct omx_endpoint *ep,
 						&req->send.segs, chunk,
 						&state);
 
+      medium_param->is_last = (i==frags_nr-1);
       err = ioctl(ep->fd, OMX_CMD_SEND_MEDIUMSQ_FRAG, medium_param);
       if (unlikely(err < 0)) {
 	/* finish copying frags if not done already */
