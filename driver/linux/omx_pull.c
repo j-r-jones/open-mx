@@ -1327,7 +1327,11 @@ omx_recv_pull_request(struct omx_iface * iface,
 		current_frame_seqnum++;
 		current_msg_offset += frame_length;
 		block_remaining_length -= frame_length;
-	}
+
+		if (!block_remaining_length) {
+			OMX_PKT_FIELD_FROM(pull_reply_n->ptype, OMX_PKT_TYPE_PULL_REPLY|0x80);
+		}
+}
 
 	/* release the main reference on the region */
 	omx_user_region_release(region);
