@@ -800,6 +800,9 @@ omx_ioctl_send_mediumva(struct omx_endpoint * endpoint,
 		}
 		remaining -= frag_length;
 
+                if (!remaining)
+                        OMX_PKT_FIELD_FROM(medium_n->msg.ptype, OMX_PKT_TYPE_MEDIUM|OMX_PACKET_NEED_IRQ);
+
 		_omx_queue_xmit(iface, skb, MEDIUM_FRAG, MEDIUMVA_FRAG);
 	}
 
