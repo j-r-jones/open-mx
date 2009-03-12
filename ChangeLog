@@ -65,7 +65,6 @@ Improvements from previous release:
 
 Open-MX 0.9.3 aka 1.0-rc3 (September 22th 2008, svn r2061)
 ==========================================================
-
 Improvements from previous release:
 * Fix driver build on Centos 5.2 kernel.
 * Fix a small memory leak in the driver.
@@ -120,7 +119,7 @@ Other improvements from previous release:
 * Fix the management of pinning errors in case of invalid memory segments.
 * Fix invalid memory free in case of early-received large message notify.
 * Fix omx_init start/stop timeout to better deal with peer discovery
-  start/stop delay better.
+  start/stop delay.
 * Fix cross-compilation when the cross-compiler is given at build and not
   at configure time.
 * Fix modinfo and modprobe usage in the startup script, they are supposed
@@ -225,7 +224,7 @@ The Many-new-Features release.
 
 Major enhancements:
 * Add vectorial communication support through omx_isendv, omx_issendv
-  and omx_irecv.
+  and omx_irecvv.
 * Add shared communication between endpoints on the same nodes, even if
   they are attached to different interfaces.
 * Add safe partner disconnection detection and recovery, either when
