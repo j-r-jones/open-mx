@@ -1,9 +1,10 @@
-Open-MX 1.0.6
-==================
+Open-MX 1.0.6 (March 20th 2009, svn/open-mx-1.0.X r25xy)
+========================================================
 The Linux kernel 2.6.29 release.
 
 Bug fixes:
 * Fix dmaengine support for Linux kernel 2.6.29.
+* Several minor fixes and cleanups.
 
 Caveats:
 * No background progression or retransmission is done if the application
