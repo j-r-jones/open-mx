@@ -1629,6 +1629,15 @@ The following options may be passed to the configure command line before buildin
 <dd>Use &lt;file&gt; as a static peer table instead of the default /etc/open-mx/peers.
 </dd>
 
+<dt>--with-linux-release=2.6.x-y</dt>
+<dt>--with-linux=/path/to/kernel/headers</dt>
+<dt>--with-linux-build=/path/to/kernel/build</dt>
+<dd>
+  Enforce the target kernel release, header directory and build directory
+  instead of retrieving them from <tt>uname -r</tt>.
+  Note that --with-linux also changes the linux-build directory.
+</dd>
+
 </dl>
 
 
