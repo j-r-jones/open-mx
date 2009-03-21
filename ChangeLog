@@ -4,6 +4,7 @@ The Linux kernel 2.6.29 release.
 
 Bug fixes:
 * Fix dmaengine support for Linux kernel 2.6.29.
+* Fix 'make installonly' to not modify anything in the build tree.
 * Several minor fixes and cleanups.
 
 Caveats:
