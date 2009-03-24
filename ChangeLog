@@ -1,6 +1,6 @@
-Open-MX 1.0.6 (March 20th 2009, svn/open-mx-1.0.X r25xy)
+Open-MX 1.0.6 (March 24th 2009, svn/open-mx-1.0.x r2525)
 ========================================================
-The Linux kernel 2.6.29 release.
+The Linux kernel 2.6.29 (and 2.6.18-is-broken) release.
 
 Bug fixes:
 * Workaround a kernel panic that may occur on 2.6.18 kernels because
