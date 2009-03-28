@@ -1,3 +1,7 @@
+
+* Add some early support for Linux kernel 2.6.30.
+
+
 Open-MX 1.0.6 (March 24th 2009, svn/open-mx-1.0.x r2525)
 ========================================================
 The Linux kernel 2.6.29 (and 2.6.18-is-broken) release.
