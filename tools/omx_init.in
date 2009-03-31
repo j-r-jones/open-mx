@@ -34,14 +34,14 @@ OMX_PEERS_FILE=@omx_peers_file@
 FMS_RUN=@fms_run@
 FMS_SERVER=@fms_server@
 
+UDEV=@omx_udev@
 UDEV_RULES_DIR=@omx_udev_rules_dir@
 UDEV_RULES_FILE=${UDEV_RULES_DIR}/@omx_udev_rules_file@
-OMX_FMA_START_TIMEOUT=5
 
 OMX_PID_FILE=/var/run/open-mx.peer-discovery.pid
 OMX_CONFIG=/etc/open-mx/open-mx.conf
 LINUX_RELEASE=$(uname -r)
-OMX_MODULE="${OMX_PREFIX}/lib/modules/${LINUX_RELEASE}/open-mx.ko"
+OMX_MODULE="${OMX_PREFIX}/modules/${LINUX_RELEASE}/open-mx.ko"
 
 set -e
 
@@ -51,9 +51,28 @@ if test ! -d ${OMX_PREFIX}; then
     exit 1
 fi
 
+# save environment-enforced values
+[ -n "$OMX_IFACES" ] && FORCE_IFACES="$OMX_IFACES"
+[ -n "$OMX_MODULE_PARAMS" ] && FORCE_MODULE_PARAMS="$OMX_MODULE_PARAMS"
+[ -n "$OMX_MODULE_DEPENDS" ] && FORCE_MODULE_DEPENDS="$OMX_MODULE_DEPENDS"
+[ -n "$OMX_FMA_PARAMS" ] && FORCE_FMA_PARAMS="$OMX_FMA_PARAMS"
+[ -n "$OMX_FMA_START_TIMEOUT" ] && FORCE_FMA_START_TIMEOUT="$OMX_FMA_START_TIMEOUT"
+# read values from the config file
 if test -r ${OMX_CONFIG}; then
     . ${OMX_CONFIG}
 fi
+# restore environment-enforced values
+[ -n "$FORCE_IFACES" ] && OMX_IFACES="$FORCE_IFACES"
+[ -n "$FORCE_MODULE_PARAMS" ] && OMX_MODULE_PARAMS="$FORCE_MODULE_PARAMS"
+[ -n "$FORCE_MODULE_DEPENDS" ] && OMX_MODULE_DEPENDS="$FORCE_MODULE_DEPENDS"
+[ -n "$FORCE_FMA_PARAMS" ] && OMX_FMA_PARAMS="$FORCE_FMA_PARAMS"
+[ -n "$FORCE_FMA_START_TIMEOUT" ] && OMX_FMA_START_TIMEOUT="$FORCE_FMA_START_TIMEOUT"
+# add defaults
+[ -z "$OMX_FMA_START_TIMEOUT" ] && OMX_FMA_START_TIMEOUT=5
+[ -z "$OMX_IFACES" ] && OMX_IFACES="all"
+
+# drop from Open-MX 1.2
+[ -n "$IFACES" ] && echo "WARNING: IFACES deprecated, use OMX_IFACES instead."
 
 usage () {
 	echo "Usage: $0 [options] <command> [module load params]"
@@ -96,7 +115,7 @@ done
 
 [ -z "$cmd" ] && usage
 
-OMX_MODULE_PARAMS="${OMX_MODULE_PARAMS} ifnames=${IFACES}"
+OMX_MODULE_PARAMS="${OMX_MODULE_PARAMS} ifnames=${OMX_IFACES}"
 
 # Remove the Open-MX module if loaded
 unload_omx() {
@@ -113,7 +132,7 @@ unload_omx() {
 
 # Check whether udev is running
 udev_is_active() {
-    test -d /dev/.udev || test -e /dev/.udev.tdb || test -d /dev/.udevdb
+    test x$UDEV = x1 && ( test -d /dev/.udev || test -e /dev/.udev.tdb || test -d /dev/.udevdb )
 }
 
 # Create device node file if necessary
@@ -194,6 +213,11 @@ load_omx() {
     # do the actual work
     check_or_create_device "/dev/$MAIN_DEVICE_NAME" "$MAIN_DEVICE_GROUP" "$MAIN_DEVICE_MODE" "open-mx" "main"
     check_or_create_device "/dev/$RAW_DEVICE_NAME" "$RAW_DEVICE_GROUP" "$RAW_DEVICE_MODE" "open-mx-raw" "raw"
+}
+
+# Check the driver status
+check_omx() {
+    ${OMX_PREFIX}/bin/omx_info -q
 }
 
 # Start the peer discovery
@@ -280,6 +304,7 @@ case "$cmd" in
     start)
 	load_omx
 	start_peer_discovery
+	check_omx
 	;;
     stop)
 	stop_peer_discovery
@@ -295,6 +320,7 @@ case "$cmd" in
 	unload_omx
 	load_omx
 	start_peer_discovery
+	check_omx
         ;;
     start-discovery)
 	start_peer_discovery
@@ -314,6 +340,7 @@ case "$cmd" in
 	if grep -E 'open(-|_)mx' /proc/modules > /dev/null; then
 	    echo "Open-MX driver is loaded"
 	    cat "/dev/$MAIN_DEVICE_NAME"
+	    check_omx
 	else
 	    echo "Open-MX driver is not loaded"
 	fi

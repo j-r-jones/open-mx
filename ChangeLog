@@ -1,3 +1,38 @@
+
+* Report when the peer table is full and some peers failed
+  to be added.
+* Add some early support for Linux kernel 2.6.30.
+* Fix the management of linux kernel release string.
+
+
+Open-MX 1.0.902 aka 1.1-rc2 (March 25th 2009, svn r2528)
+========================================================
+The 32bit/64bit Multi-Lib release.
+
+Bug fixes:
+* Workaround a kernel panic that may occur on 2.6.18 kernels because
+  of the broken vmalloc_user() implementation.
+
+Major Enhancements:
+* Add --enable-multilib to build both 32bit and 64bit libraries,
+  + Install them in lib32/ and lib64/ and symlink lib to the one
+    that corresponds to the compiler default pointer size.
+* Enable thread-safety by default.
+
+Other improvements from previous release:
+* The OMX_IFACES variable in open-mx.conf replaces the old IFACES.
+* make install does not build anymore, make should be invoked first.
+* Allow disabling udev support at make install with udev=0.
+* Allow changing the target kernel with --with-linux-release
+  instead of only enforcing its release name within Open-MX.
+* Move kernel modules from lib/modules/ into modules/ with the
+  install directory.
+* Some fixes in the omx_check.sh testing script.
+
+Caveats:
+* No background progression or retransmission is done if the application
+  does not invoke an Open-MX routine explicitly.
+
 Open-MX 1.0.901 aka 1.1-rc1 (March 13th 2009, svn r2466)
 ========================================================
 The improved non-MX-wire-compatibility release.
@@ -26,9 +61,16 @@ Other improvements:
 * Add the ability to iprobe/probe across multiple context ids.
 * Miscellaneous small improvements and cleanups all over the place.
 
-Caveats:
-* No background progression or retransmission is done if the application
-  does not invoke an Open-MX routine explicitly.
+Open-MX 1.0.6 (March 24th 2009, svn/open-mx-1.0.x r2525)
+========================================================
+The Linux kernel 2.6.29 (and 2.6.18-is-broken) release.
+
+Bug fixes:
+* Workaround a kernel panic that may occur on 2.6.18 kernels because
+  of the broken vmalloc_user() implementation.
+* Fix dmaengine support for Linux kernel 2.6.29.
+* Fix 'make installonly' to not modify anything in the build tree.
+* Several minor fixes and cleanups.
 
 Open-MX 1.0.5 (January 29th 2009, svn/open-mx-1.0.x r2301)
 ==========================================================

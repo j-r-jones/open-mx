@@ -15,7 +15,7 @@
 # See the GNU General Public License in COPYING.GPL for more details.
 
 AC_INIT([Open-MX],
-        1.0.901,
+        1.0.902,
         [http://open-mx.org],
         open-mx)
 AC_CONFIG_SRCDIR(common/omx_io.h)
@@ -129,9 +129,18 @@ if test x$build_driver = xyes ; then
 	KCC_VERSION=`$CC --version 2>/dev/null | sed -ne 's/gcc.* (GCC) \(.\..\).*/\1/p'`
     fi
 
-    LINUX_SRC="/lib/modules/"`uname -r`"/source"
-    LINUX_BUILD="/lib/modules/"`uname -r`"/build"
     LINUX_GCC_VERSION=`sed -e 's/.*gcc version \(.\..\).*/\1/' /proc/version`
+
+    AC_ARG_WITH(linux-release,
+	[AS_HELP_STRING([--with-linux-release=<version>], [release number of the target kernel])],
+	FORCE_LINUX_RELEASE="$withval"; LINUX_GCC_VERSION="")
+    if test -z "$FORCE_LINUX_RELEASE"; then
+	LINUX_SRC="/lib/modules/"`uname -r`"/source"
+	LINUX_BUILD="/lib/modules/"`uname -r`"/build"
+    else
+	LINUX_SRC="/lib/modules/$FORCE_LINUX_RELEASE/source"
+	LINUX_BUILD="/lib/modules/$FORCE_LINUX_RELEASE/build"
+    fi
     # If the user changes the source, use it as build by default
     # If it changes the build, do not use it as the source by default
     AC_ARG_WITH(linux,
@@ -140,13 +149,8 @@ if test x$build_driver = xyes ; then
     AC_ARG_WITH(linux-build,
 	[AS_HELP_STRING([--with-linux-build=<dir>], [location of the Linux kernel build tree])],
 	LINUX_BUILD="$withval"; LINUX_GCC_VERSION="")
-    AC_ARG_WITH(linux-release,
-	[AS_HELP_STRING([--with-linux-release=<version>], [release number of the target kernel])],
-	LINUX_RELEASE="$withval",
-	LINUX_RELEASE=$(make kernelrelease -C ${LINUX_BUILD} | grep ^2.6.))
     AC_SUBST(LINUX_SRC)
     AC_SUBST(LINUX_BUILD)
-    AC_SUBST(LINUX_RELEASE)
 
     # Issue a warning if the kernel compiler seems to be different
     if test -n "$KCC_VERSION" && test -n "$LINUX_GCC_VERSION" ; then
@@ -200,25 +204,68 @@ if test x$build_driver = xyes ; then
     fi
     AC_MSG_RESULT(found in ${LINUX_BUILD})
 
-    # Find the kernel release
+    # Check the kernel release
+    REAL_LINUX_RELEASE=$(make kernelrelease -C ${LINUX_BUILD} | grep ^2.6.)
     AC_MSG_CHECKING(kernel release)
-    if test x${LINUX_RELEASE} = x; then
+    if test x${REAL_LINUX_RELEASE} = x; then
       AC_MSG_ERROR(not found)
     fi
-    AC_MSG_RESULT(${LINUX_RELEASE})
+    AC_MSG_RESULT(${REAL_LINUX_RELEASE})
+    if test -z "$FORCE_LINUX_RELEASE"; then
+	LINUX_RELEASE="$REAL_LINUX_RELEASE"
+    else
+	if test "x$FORCE_LINUX_RELEASE" != "x$REAL_LINUX_RELEASE" ; then
+	    AC_MSG_WARN(kernel build reports $REAL_LINUX_RELEASE instead of $FORCE_LINUX_RELEASE)
+	fi
+	LINUX_RELEASE="$FORCE_LINUX_RELEASE"
+    fi
+    AC_SUBST(LINUX_RELEASE)
 
 fi # end of $build_driver = yes
 
 #######################################
-# debug, profiling and valgrind config
+# options that change multilib configs
 
-libopen_mx_builddir="${libopen_mx_dir}build/"
+AC_ARG_ENABLE(debug,
+	[AS_HELP_STRING([--enable-debug], [enable debugging features in the driver and main library])],
+	enable_debug=$enableval, enable_debug=optional)
+AC_MSG_CHECKING(if debug is enabled in the driver and main library)
+AC_MSG_RESULT($enable_debug)
+
+AC_ARG_ENABLE(multilib,
+	[AS_HELP_STRING([--enable-multilib], [build both 32bits and 64bits libraries])],
+	enable_multilib=$enableval, enable_multilib=no)
+AC_MSG_CHECKING(if multilib is enabled)
+AC_MSG_RESULT($enable_multilib)
+
+##################
+# multilib builds
+
+if test x$build_lib = xyes ; then
+    # find the default pointer size of the compiler
+    AC_MSG_CHECKING(checking compiler default pointer size)
+    AC_COMPILE_IFELSE([int a[[sizeof(void *)-7]];], defaultptrsize=64, defaultptrsize=32)
+    AC_MSG_RESULT($defaultptrsize)
+
+    # setup the creation of a lib symlink to compiler-default-pointer-size library
+    AC_MSG_CHECKING(default lib symlink)
+    INSTALL_LIB_LINKTARGET=lib${defaultptrsize}
+    AC_MSG_RESULT(lib${defaultptrsize})
+fi
+AC_SUBST(INSTALL_LIB_LINKTARGET)
+
+if test x$enable_multilib = xyes; then
+  libopen_mx_default_builddir="${libopen_mx_dir}build${defaultptrsize}/"
+else
+  libopen_mx_default_builddir="${libopen_mx_dir}build/"
+fi
 libopen_mx_name="libopen-mx"
 LIB_TARGETS=""
 
 generate_lib_build() {
 	dir=$1; shift
 	name=$1; shift
+	ptrsize=$1; shift
 	debug=$1; shift
 	installsuffix=$1; shift
 
@@ -228,6 +275,7 @@ generate_lib_build() {
 
 	cat >${libopen_mx_dir}${dir}/Makefile <<EOF
 omx_build_lib_debug = $debug
+omx_build_lib_ptrsize = $ptrsize
 omx_build_lib_name = $name
 omx_build_lib_dir = ${libopen_mx_dir}${dir}
 libdirsuffix = ${installsuffix}
@@ -239,27 +287,43 @@ EOF
 	LIB_TARGETS="$LIB_TARGETS $dir"
 }
 
-AC_ARG_ENABLE(debug,
-	[AS_HELP_STRING([--enable-debug], [enable debugging features in the driver and main library])],
-	enable_debug=$enableval, enable_debug=optional)
-AC_MSG_CHECKING(if debug is enabled in the driver and main library)
-AC_MSG_RESULT($enable_debug)
 if test x$enable_debug = xyes; then
   # only build the debug lib lib
   AC_DEFINE(OMX_DRIVER_DEBUG, [1], [Define to enable debug features in the driver])
   AC_SUBST(omx_debug_tests, 1)
-  generate_lib_build build debug-only 1 ""
+  if test x$enable_multilib = xyes; then
+    generate_lib_build build32 32bits-debug-only 32 1 32
+    generate_lib_build build64 64bits-debug-only 64 1 64
+  else
+    generate_lib_build build debug-only "" 1 "${defaultptrsize}"
+  fi
 else if test x$enable_debug = xno; then
   # only build the non-debug lib
   AC_SUBST(omx_debug_tests, 0)
-  generate_lib_build build normal 0 ""
+  if test x$enable_multilib = xyes; then
+    generate_lib_build build32 32bits-normal 32 0 32
+    generate_lib_build build64 64bits-normal 64 0 64
+  else
+    generate_lib_build build normal "" 0 "${defaultptrsize}"
+  fi
 else
   # build both by default
-  generate_lib_build build normal 0 ""
-  generate_lib_build build-dbg debug 1 /debug
+  if test x$enable_multilib = xyes; then
+    generate_lib_build build32 32bits-normal 32 0 32
+    generate_lib_build build64 64bits-normal 64 0 64
+    generate_lib_build build32-dbg 32bits-debug 32 1 "32/debug"
+    generate_lib_build build64-dbg 64bits-debug 64 1 "64/debug"
+  else
+    generate_lib_build build normal "" 0 "${defaultptrsize}"
+    generate_lib_build build-dbg debug "" 1 "${defaultptrsize}/debug"
+  fi
   AC_SUBST(omx_debug_tests, 0)
 fi fi
+
 AC_SUBST(LIB_TARGETS)
+
+#######################################
+# debug, profiling and valgrind config
 
 AC_ARG_ENABLE(debug-requests,
 	[AS_HELP_STRING([--enable-debug-requests], [enable request debugging in the library])],
@@ -486,8 +550,8 @@ fi
 # misc config
 
 AC_ARG_ENABLE(threads,
-	[AS_HELP_STRING([--enable-threads], [enable thread safety in the library])],
-	enable_lib_threads=$enableval, enable_lib_threads=no)
+	[AS_HELP_STRING([--disable-threads], [disable thread safety in the library])],
+	enable_lib_threads=$enableval, enable_lib_threads=yes)
 AC_MSG_CHECKING(if thread safety is enabled in the library)
 if test x$enable_lib_threads = xyes; then
   AC_MSG_RESULT(yes)
@@ -656,11 +720,11 @@ AC_SUBST(OMX_RAW_DEVICE_MODE)
 
 AC_SUBST(OPEN_MX_LIB_STATIC, ${libopen_mx_name}.a)
 AC_SUBST(OPEN_MX_LIB_DYNAMIC, ${libopen_mx_name}.so)
-AC_SUBST(OPEN_MX_LIB_DIR, ${libopen_mx_builddir})
-AC_SUBST(OPEN_MX_LIB_STATIC_PATH, ${libopen_mx_builddir}/${libopen_mx_name}.a)
-AC_SUBST(OPEN_MX_LIB_DYNAMIC_PATH, ${libopen_mx_builddir}/${libopen_mx_name}.so)
 AC_SUBST(OPEN_MX_LIB_DYNAMIC_LINK_OPT, ${libopen_mx_name/lib/-l})
 AC_SUBST(MX_LIB_DYNAMIC_LINK_OPT, -lmyriexpress)
+AC_SUBST(OPEN_MX_DEFAULT_LIB_DIR, ${libopen_mx_default_builddir})
+AC_SUBST(OPEN_MX_DEFAULT_LIB_STATIC_PATH, ${libopen_mx_default_builddir}/${libopen_mx_name}.a)
+AC_SUBST(OPEN_MX_DEFAULT_LIB_DYNAMIC_PATH, ${libopen_mx_default_builddir}/${libopen_mx_name}.so)
 
 if test x$build_driver = xyes ; then
     orig_builddir=$(pwd)

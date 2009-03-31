@@ -108,6 +108,9 @@
 <li><a href="#building-build-install">
   How do I build and install Open-MX?
 </a></li>
+<li><a href="#building-multilib">
+  May I build a 32bit library? or a 64bit? or both?
+</a></lib>
 <li><a href="#building-where-install">
   Where should I install Open-MX?
 </a></li>
@@ -189,6 +192,9 @@
 <li><a href="#peerdiscovery-which">
   How do I decide between omxoed, FMA and static peer table?
 </a></li>
+<li><a href="#peerdiscovery-size">
+  How many peers may Open-MX talk to?
+</a></li>
 <li><a href="#peerdiscovery-raw">
   What is the raw interface and how do I use it?
 </a></li>
@@ -259,7 +265,10 @@
   What are Open-MX build-time configuration options?
 </a></li>
 <li><a href="#config-installtime">
-    What are Open-MX install-time configuration options?
+  What are Open-MX install-time configuration options?
+</a></li>
+<li><a href="#config-startup">
+  What are Open-MX startup-time configuration options?
 </a></li>
 <li><a href="#config-runtime">
   What are Open-MX runtime configuration options?
@@ -406,11 +415,7 @@
 Open-MX supports Linux on any architecture.
 </p>
 <p>
-The Open-MX driver works at least on Linux kernels >=2.6.17 on i386 and x86_64
-architectures. It also builds fine with kernels up to 2.6.15 on various
-architectures but it has not been tested intensively on these.
-</p>
-<p>
+The Open-MX driver works at least on Linux kernels >=2.6.15.
 Kernels older than 2.6.15 are unlikely to be ever supported due to various
 important functions being unavailable (especially vm_insert_page).
 </p>
@@ -566,10 +571,11 @@ check that all peers are seeing each other.
 See <a href="#peerdiscovery">Peer Discovery</a> for details.
 <pre>
 $ omx_info
-node1:0 (board #0 name eth2 addr 01:02:03:04:05:06)
-==============================================
-1) 01:02:03:04:05:06 node1:0
-2) a0:b0:c0:d0:e0:f0 node2:0
+[...]
+Peer table is ready, mapper is 01:02:03:04:05:06
+================================================
+  0) 01:02:03:04:05:06 node1:0
+  1) a0:b0:c0:d0:e0:f0 node2:0
 </pre>
 </li>
 <li>
@@ -619,11 +625,11 @@ $ /path/to/open-mx/sbin/omx_init start ifnames=lo
 <p>
 You should now see localhost appear in the peer table.
 <pre>
-  $ tools/omx_info 
-  [...]
-  localhost (board #0 name lo addr 00:00:00:00:00:00)
-  ==============================================
-    0) 00:00:00:00:00:00 localhost
+$ tools/omx_info 
+[...]
+Peer table is ready, mapper is 00:00:00:00:00:00
+================================================
+  0) 00:00:00:00:00:00 localhost
 </pre>
 </p>
 <p>
@@ -654,8 +660,11 @@ driver in a MX-similar way.
 </a></h4>
 <p>
 The Open-MX driver is always thread-safe. The user-space library is
-not thread-safe by default. You should pass --enable-threads to the
-configure script to enable thread safety.
+thread-safe by default, but you may pass --disable-threads to the
+configure script to disable thread safety if needed.
+Disabling thread safety is only useful for reducing the latency
+a little bit when all applications either ensure thread safety above
+Open-MX or never use any thread.
 </p>
 
 
@@ -730,7 +739,12 @@ $ make
 $ make install
 </pre>
 <p>
-Note that if building from SVN, you will need to generate the
+Note that <tt>make install</tt> does not build automatically if needed.
+<tt>make</tt> must be used first. Both steps may be independently
+parallelized with <tt>-j</tt>.
+</p>
+<p>
+Also note that if building from SVN, you will need to generate the
 configure script and common/omx_config.h.in header first.
 autoconf and autoheader are required to do so.
 A straightforward way is to pass configure options to the autogen.sh
@@ -765,6 +779,37 @@ may be given on the command line:
 <pre>
 $ sbin/omx_init start ifnames=eth1
 </pre>
+
+
+<h4><a id="building-multilib" href="#building-multilib">
+  May I build a 32bit library? or a 64bit? or both?
+</a></h4>
+<p>
+  By default, Open-MX builds user-space libraries andtools with the default
+  compiler options.
+  You may for instance enforce a 32bit build by passing <tt>CC="gcc -m32"</tt>
+  on the configure command-line.
+</p>
+<p>
+  It is also possible to build both 32bit and 64bit libraries by passing
+  <tt>--enable-multilib</tt> to the configure script.
+  The resulting libraries will be installed in <tt>lib32/</tt> and <tt>lib64/</tt>
+  directories respectively.
+  A <tt>lib</tt> symbolic link will also point to the library directory that was built
+  with the default compiler pointer size.
+  Note that Open-MX internal tools and tests program will be linked will this
+  default library.
+</p>
+<p>
+  When building a MPI layer, it will usually look for the <tt>lib</tt> directory
+  within the Open-MX install tree.
+  If the <tt>lib</tt> symbolic link points to <tt>lib64</tt>
+  (because the compiler defaults to 64bits pointers), the MPI build will
+  use 64bits libraries by default.
+  To enforce 32bits libraries, you may want to tell the MPI configure
+  script to look in lib32 instead of lib, for instance by using
+  <tt>--with-mx=/path/to/open-mx/install --with-mx-libdir=/path/to/open-mx/install/lib32</tt>.
+</p>
 
 
 <h4><a id="building-where-install" href="#building-where-install">
@@ -824,11 +869,21 @@ When installing the Open-MX startup script with <tt>omx_local_install</tt>
 (see <a href="#building-autostart">How to setup Open-MX to auto-start at boot?</a>),
 the udev installation is checked.
 An Open-MX-specific udev rule file is installed
-(usually in /etc/udev/rules.d/45-open-mx.rules, see
- <a href="#config-installtime">What are Open-MX install-time configuration options?</a>).
 The administrator may either tune this file or the Open-MX configure line
 to change device file names or access permissions
 (see <a href="#kernel-device-files">Which device files does Open-MX use?</a>).
+</p>
+<p>
+The udev rules file is usually <tt>/etc/udev/rules.d/45-open-mx.rules</tt>.
+For some reason, some old udev daemon (for instance on some RHEL5 distribution)
+may override the Open-MX rules with a default one, and thus cause the device
+files to not get the desired filenames and permissions.
+When it happens, you may try changing this rules filename into <tt>55-open-mx.rules</tt>
+in case it does not get overridden by the default <tt>50-udev.rules</tt> anymore.
+To do so, use the <tt>UDEV_RULES_FILE</tt> option at install-time
+at <a href="#config-installtime">What are Open-MX install-time configuration options?</a>.
+In extreme circumstances, it is also possible to disable udev support entirely
+in Open-MX by passing <tt>udev=0</tt> at install-time.
 </p>
 
 
@@ -860,21 +915,18 @@ $ sbin/omx_local_install --uninstall
 </a></h4>
 <p>
 Most NFS configurations do not allow root on the client to operate
-as root on the server's files. When running 'make install' as root,
-you might experience problems because some Makefiles (especially
-the kernel driver's one) might modify some files before actually
-installing anything.
+as root on the server's files.
+When running <tt>make install</tt> as root, you might experience
+problems because some Makefiles (especially the kernel driver's one)
+might modify some files before actually installing anything.
 </p>
 <p>
-To work around this, assuming everything has been built as non-root
-before, you may use (as root)
-</p>
-<pre>
-$ make installonly
-</pre>
-<p>
-so that it really only installs things without checking whether the
-build is up-to-date.
+To avoid this problem, <tt>make install</tt> does not try to build
+what may be missing (it is equivalent to <tt>make installonly</tt>).
+You should thus build as a normal user and then run <tt>make install</tt>
+as root.
+This way, it really only installs things without ever trying
+to modify the build tree as root over NFS.
 </p>
 
 
@@ -925,17 +977,25 @@ pass KCC=&lt;othercompiler&gt; on the configure or make command line.
 During configure, Open-MX checks the running kernel with 'uname -r' and
 builds the open-mx module against it, using its headers and build tree
 in /lib/modules/`uname -r`/{source,build}.
-
-To build for another kernel, use
 </p>
+<p>
+To build for another kernel, you may pass its release name so that Open-MX
+finds the corresponding header directories from <tt>/lib/modules/<name>/</tt>:
+</p>
+<pre>
+$ ./configure --with-linux-release=2.6.x-y
+</pre>
+It is also possible to directly define the kernel header directory:
 <pre>
 $ ./configure --with-linux=/path/to/kernel/headers/
 </pre>
 <p>
-To build using another kernel build tree, use
+If using a distribution such as Suse where kernel headers and build tools are
+split into multiple directories, you may also need to define the build directory:
 </p>
 <pre>
-$ ./configure --with-linux=/path/to/kernel/headers/ --with-linux-build=/path/to/kernel/build/tree/
+$ ./configure --with-linux=/usr/src/linux-2.6.16.60-0.34 \
+              --with-linux-build=/usr/src/linux-2.6.16.60-0.34-obj/x86_64/smp/
 </pre>
 
 
@@ -990,7 +1050,7 @@ be configured similarly with --with-raw-device.
 <p>
 By default, when loading the Open-MX driver, all existing network
 interfaces in the system will be attached
-(except those above 8 by default), except the ones that are not
+(except those above 32 by default), except the ones that are not
 Ethernet, are not up, or have a small MTU.
 </p>
 <p>
@@ -1004,7 +1064,8 @@ $ insmod lib/modules/.../open-mx.ko ifnames=eth3,eth2
 <p>
 Once Open-MX has been installed with omx_local_install, the
 /etc/open-mx/open-mx.conf may be modified to configure which
-interfaces should be attached at startup.
+interfaces should be attached at startup
+(see also <a href="#startup-config">What are Open-MX startup-time configuration options?</a>).
 </p>
 
 
@@ -1262,6 +1323,23 @@ It is also possible to switch from fma to omxoed by passing the option
 </p>
 
 
+<h4><a id="peerdiscovery-size" href="#peerdiscovery-size">
+  How many peers may Open-MX talk to?
+</a></h4>
+<p>
+Open-MX may manage up to 65536 peers on the fabric.
+However, since such big fabrics are quite unusual, the Open-MX driver
+only supports 1024 peers by default.
+This threshold may be increased when loading the driver by passing
+the module parameter <tt>peers=N</tt>.
+</p>
+<p>
+If too many peers are connected and the driver fails to add all
+of them to the peer table because it is full, a warning will be
+displayed in the kernel log and in the output of <tt>omx_info</tt>.
+</p>
+
+
 <h4><a id="peerdiscovery-raw" href="#peerdiscovery-raw">
   What is the raw interface and how do I use it?
 </a></h4>
@@ -1390,7 +1468,7 @@ for now, this registration cache should be used with caution.
 <p>
 Most Ethernet drivers use interrupt coalescing to avoid interrupting the
 host once per incoming packet. While this is good for the throughput, it
-increase the latency a lot, up to dozens of milliseconds.
+increase the latency a lot, up to several dozens of microseconds.
 </p>
 <p>
 To get the best latency for Open-MX, interrupt coalescing should be reduced.
@@ -1407,7 +1485,31 @@ with Open-MX when interrupt coalescing is disabled, a nice configuration
 would to set coalescing to N or N-1 usecs:
 </p>
 <pre>
-$ ethtool -C eth2 rx-usecs &lt;N-1&gt;>
+$ ethtool -C eth2 rx-usecs &lt;N-1&gt;
+</pre>
+<p>
+If your driver supports <em>Adaptive interrupt coalescing</em>, it
+may well help Open-MX performance significantly.
+Indeed, it basically automatically disables coalescing (and thus improves latency)
+when the amount of packets is low, and reenables a high coalescing
+delay (and thus improve the overall performance) when the amount of
+packets is high.
+Thus, when it is supported, you probably want to enable adaptive interrupt
+coalescing on the receive side:
+</p>
+<pre>
+$ ethtool -C eth2 adaptive-rx on
+</pre>
+<p>
+Then, if you do not observe optimal performance yet, you may want to tune adaptive
+coalescing so that for instance a pingpong-like pattern gets the best latency.
+Since a 6-microseconds pingpong generates 83 thousands of packets per second,
+you may for instance tell the driver to disable coalescing entirely when less
+than 150 thousands packets are received per seconds:
+</p>
+<pre>
+$ ethtool -C eth2 pkt-rate-low 150000
+$ ethtool -C eth2 rx-usecs-low 0
 </pre>
 
 
@@ -1697,6 +1799,12 @@ The following options may be passed to the configure command line before buildin
 
 <dl>
 
+<dt>--enable-multilib</dt>
+<dd>Build both 32bit and 64bit library instead of only
+  the compiler's default one.
+  See also <a href="#building-multilib">May I build a 32bit library? or a 64bit? or both?</a>.
+</dd>
+
 <dt>--enable-debug</dt>
 <dd>Only build a debugging library.
   Both a debug and a non-debug are built by default, and the
@@ -1720,6 +1828,11 @@ The following options may be passed to the configure command line before buildin
 <dt>--disable-shared</dt>
 <dd>Disable software loopback between endpoints of the same node.
   Shared software loopback is enabled by default.
+</dd>
+
+<dt>--disable-threads</dt>
+<dd>Disable thread safety in the user-space library.
+  See also <a href="#running-thread">Is Open-MX thread-safe?</a>.
 </dd>
 
 <dt>--enable-valgrind</dt>
@@ -1774,6 +1887,16 @@ The following options may be passed to the configure command line before buildin
 <dd>Use &lt;file&gt; as a static peer table instead of the default /etc/open-mx/peers.
 </dd>
 
+<dt>--with-linux-release=2.6.x-y</dt>
+<dt>--with-linux=/path/to/kernel/headers</dt>
+<dt>--with-linux-build=/path/to/kernel/build</dt>
+<dd>
+  Enforce the target kernel release, header directory and build directory
+  instead of retrieving them from <tt>uname -r</tt>.
+  Note that --with-linux-release also changes the linux and linux-build
+  directories, and that --with-linux also changes the linux-build directory.
+</dd>
+
 </dl>
 
 
@@ -1806,6 +1929,12 @@ to tune the installation:
   (inserted of being converted at runtime as usual).
   See also <a href="#compat-api-abi-disable">When can I disable the MX-API or -ABI compatibility?</a>.
 </dd>
+<dt>udev=1</dt>
+<dd>
+  If set to 0, disable udev support, which means no udev rules file
+  will be installed, and device files will be created by the Open-MX
+  startup script.
+</dd>
 <dt>UDEV_RULES_DIR=/etc/udev/rules.d/</dt>
 <dt>UDEV_RULES_FILE=45-open-mx.rules</dt>
 <dd>
@@ -1817,12 +1946,151 @@ to tune the installation:
 </dl>
 
 
+<h4><a id="config-startup" href="#config-startup">
+  What are Open-MX startup-time configuration options?
+</a></h4>
+<p>
+The following module parameters may be passed to the driver module when loading,
+either as a parameter to the modprobe command, or through the OMX_MODULE_PARAMS
+variable for the omx_init or /etc/init.d/open-mx startup script.
+Some of them may also be modified later by writing into
+/sys/module/open_mx/parameters/&lt;parameter&gt;.
+</p>
+
+<dl>
+
+<dt>ifnames="eth2 eth3"</dt>
+<dd>Attach interfaces eth2 and eth3 at startup instead of all interfaces.
+  See <a href="#ifaces">Managing Interfaces</a> for details.
+</dd>
+
+<dt>ifaces=32</dt>
+<dd>Allow a maximum of 32 interfaces to be attached at the same time.
+  Default is 32.
+</dd>
+
+<dt>endpoints=32</dt>
+<dd>Allow a maximum of 32 endpoints to be open by interfaces.
+  Default is 32.
+</dd>
+
+<dt>peers=1024</dt>
+<dd>Allow a maximum of 1024 peers to be connected on the network.
+  Default is 1024.
+</dd>
+
+<dt>demandpin=1</dt>
+<dd>Defer memory pinning of large region until really needed to enable
+  overlap of pinning with communication (only shared-memory for now).
+  Default is 0 (disabled).
+</dd>
+
+<dt>dmaengine=1</dt>
+<dd>Enable DMA engine to offload memory copies, when supported in hardware
+  and in the kernel. Modifying this value will display the DMA engine
+  status in the kernel logs.
+  Default is 0 (disabled).
+</dd>
+
+<dt>dmaasyncmin=65536</dt>
+<dd>Offload asynchronous copy on DMA engine hardware only if the whole
+  message length is above this threshold. This is used for large message
+  receive. Even if fragments are large, offloading their copy does not
+  make much sense if there are very few of them.
+  Default is 64 kbytes.
+</dd>
+
+<dt>dmaasyncfragmin=1024</dt>
+<dd>Offload asynchronous copy on DMA engine hardware only if the current
+  fragment length is above this threshold. This is used for large
+  message receive. Even if the whole message is big, offloading very
+  small fragment copy does not make much sense if submitting the copy
+  offload request is slower than copying directly.
+  Default is 1024 bytes.
+</dd>
+
+<dt>dmasyncmin=2097152</dt>
+<dd>Offload synchronous copy on DMA engine hardware only if the length
+  is above this threshold. This is used for medium message receive,
+  and shared memory communication. Offloading small synchronous copies
+  is not faster than a regular copy when the data is smaller than the
+  cache.
+  Default is 2 Mbytes.
+</dd>
+
+<dt>skbfrags=16</dt>
+<dd>Allow a maximum of 16 frags to be attached to socket buffer on the
+  send side. If the underlying driver does not support frags, 0 should
+  be used.
+  The default and maximal value is MAX_SKB_FRAGS (16 on common archs).
+</dd>
+
+<dt>skbcopy=0</dt>
+<dd>Copy buffers small buffers into a linear skb instead of attaching
+  pages. If the underlying driver is slow sending frags, increasing
+  this parameter to copy small frags into linear skb may be faster
+  than using frags as usual.
+  Default is 0 (never copy, always attach).
+</dd>
+
+<dt>copybench=1</dt>
+<dd>Enable a memory copy benchmark at startup.
+  Default is disabled (0).
+</dd>
+
+</dl>
+
+<p>
+  When starting Open-MX with the <tt>omx_init</tt> script
+  (or <tt>/etc/init.d/open-mx</tt> if installed by <tt>omx_local_install</tt>),
+  it is also possible to tune its startup by modifying the
+  <tt>/etc/open-mx/open-mx.conf</tt> configuration file with the
+  following variables.
+  It is also possible to overwrite these variables by passing them
+  in the environment when running the startup script.
+</p>
+
+<dl>
+
+<dt>OMX_IFACES="all"</dt>
+<dd>
+ Defines which interface to acquire for Open-MX at startup.
+ "all" attaches all available interfaces (default).
+ "eth1,eth3" attaches eth1 and eth3.
+ " " attaches none of them.
+ See also <a href="#ifaces-startup">Which interfaces are attached are startup?</a>.
+
+</dd>
+
+<dt>OMX_MODULE_PARAMS=</dt>
+<dd>
+  Pass some parameter to Open-MX kernel module on load.
+</dd>
+
+<dt>OMX_MODULE_DEPENDS=</dt>
+<dd>
+  Define some kernel module dependencies (useful if modinfo is missing).
+</dd>
+
+<dt>OMX_FMA_PARAMS=</dt>
+<dd>
+  Pass additional FMA command-line parameters (-D for debug, ...).
+</dd>
+
+<dt>OMX_FMA_START_TIMEOUT=5</dt>
+<dd>
+  Define the additional FMA startup timeout in seconds (5 by default).
+</dd>
+
+</dl>
+
+
 <h4><a id="config-runtime" href="#config-runtime">
   What are Open-MX runtime configuration options?
 </a></h4>
 <p>
 The following environment variables may be used to change the library
-behavior at runtime:
+behavior at runtime, when starting a process:
 </p>
 
 <dl>
@@ -1981,97 +2249,6 @@ behavior at runtime:
 
 </dl>
 
-<p>
-The following module parameters may be passed to the driver module when loading,
-either as a parameter to the modprobe command, or through the OMX_MODULE_PARAMS
-variable for the omx_init or /etc/init.d/open-mx startup script.
-Some of them may also be modified later by writing into
-/sys/module/open_mx/parameters/&lt;parameter&gt;.
-</p>
-
-<dl>
-
-<dt>ifnames="eth2 eth3"</dt>
-<dd>Attach interfaces eth2 and eth3 at startup instead of all interfaces.
-  See <a href="#ifaces">Managing Interfaces</a> for details.
-</dd>
-
-<dt>ifaces=32</dt>
-<dd>Allow a maximum of 32 interfaces to be attached at the same time.
-  Default is 32.
-</dd>
-
-<dt>endpoints=32</dt>
-<dd>Allow a maximum of 32 endpoints to be open by interfaces.
-  Default is 32.
-</dd>
-
-<dt>peers=1024</dt>
-<dd>Allow a maximum of 1024 peers to be connected on the network.
-  Default is 1024.
-</dd>
-
-<dt>demandpin=1</dt>
-<dd>Defer memory pinning of large region until really needed to enable
-  overlap of pinning with communication (only shared-memory for now).
-  Default is 0 (disabled).
-</dd>
-
-<dt>dmaengine=1</dt>
-<dd>Enable DMA engine to offload memory copies, when supported in hardware
-  and in the kernel. Modifying this value will display the DMA engine
-  status in the kernel logs.
-  Default is 0 (disabled).
-</dd>
-
-<dt>dmaasyncmin=65536</dt>
-<dd>Offload asynchronous copy on DMA engine hardware only if the whole
-  message length is above this threshold. This is used for large message
-  receive. Even if fragments are large, offloading their copy does not
-  make much sense if there are very few of them.
-  Default is 64 kbytes.
-</dd>
-
-<dt>dmaasyncfragmin=1024</dt>
-<dd>Offload asynchronous copy on DMA engine hardware only if the current
-  fragment length is above this threshold. This is used for large
-  message receive. Even if the whole message is big, offloading very
-  small fragment copy does not make much sense if submitting the copy
-  offload request is slower than copying directly.
-  Default is 1024 bytes.
-</dd>
-
-<dt>dmasyncmin=2097152</dt>
-<dd>Offload synchronous copy on DMA engine hardware only if the length
-  is above this threshold. This is used for medium message receive,
-  and shared memory communication. Offloading small synchronous copies
-  is not faster than a regular copy when the data is smaller than the
-  cache.
-  Default is 2 Mbytes.
-</dd>
-
-<dt>skbfrags=16</dt>
-<dd>Allow a maximum of 16 frags to be attached to socket buffer on the
-  send side. If the underlying driver does not support frags, 0 should
-  be used.
-  The default and maximal value is MAX_SKB_FRAGS (16 on common archs).
-</dd>
-
-<dt>skbcopy=0</dt>
-<dd>Copy buffers small buffers into a linear skb instead of attaching
-  pages. If the underlying driver is slow sending frags, increasing
-  this parameter to copy small frags into linear skb may be faster
-  than using frags as usual.
-  Default is 0 (never copy, always attach).
-</dd>
-
-<dt>copybench=1</dt>
-<dd>Enable a memory copy benchmark at startup.
-  Default is disabled (0).
-</dd>
-
-</dl>
-
 
 <h4><a id="config-middleware" href="#config-middleware">
   What should I know before I build/link my middleware with Open-MX?
@@ -2095,7 +2272,7 @@ you should read the following configuration advices:
 <dt>Thread-safety</dt>
 <dd>
   A thread-safe middleware should generally rely on a thread safe Open-MX.
-  Building Open-MX without --enable-threads may only work if caller uses
+  Building Open-MX with --disable-threads may only work if caller uses
   neither any blocking Open-MX functions nor the unexpected handler, and
   obviously serializes Open-MX calls.
 </dd>
@@ -2269,7 +2446,7 @@ $ omx_init status
 
 
 <p style="text-align: right; font-size: 12px; font-style: italic;">
-  Last updated on 2008/09/23.
+  Last updated on 2009/03/27.
 </p>
 
 <script type="text/javascript">

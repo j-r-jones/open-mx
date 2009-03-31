@@ -22,19 +22,20 @@
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
 
+#include "omx_hal.h"
 #include "omx_io.h"
 #include "omx_wire.h"
 
 /* set/get a skb destructor and its data */
 static inline void
-omx_set_skb_destructor(struct sk_buff *skb, void (*callback)(struct sk_buff *skb), void * data)
+omx_set_skb_destructor(struct sk_buff *skb, void (*callback)(struct sk_buff *skb), const void * data)
 {
 	skb->destructor = callback;
-	skb->sk = data;
+	skb->sk = (void *) data;
 }
 
-static inline void *
-omx_get_skb_destructor_data(struct sk_buff *skb)
+static inline __pure void *
+omx_get_skb_destructor_data(const struct sk_buff *skb)
 {
 	return (void *) skb->sk;
 }
@@ -71,8 +72,8 @@ extern unsigned long omx_packet_loss_index;
 #define omx_queue_xmit(iface, skb, type) _omx_queue_xmit(iface, skb, type, type)
 
 /* translate omx_endpoint_acquire_by_iface_index return values into nack type */
-static inline enum omx_nack_type
-omx_endpoint_acquire_by_iface_index_error_to_nack_type(void * errptr)
+static inline __pure enum omx_nack_type
+omx_endpoint_acquire_by_iface_index_error_to_nack_type(const void * errptr)
 {
 	switch (PTR_ERR(errptr)) {
 	case -EINVAL:
@@ -86,8 +87,8 @@ omx_endpoint_acquire_by_iface_index_error_to_nack_type(void * errptr)
 }
 
 /* manage addresses */
-static inline uint64_t
-omx_board_addr_from_netdevice(struct net_device * ifp)
+static inline __pure uint64_t
+omx_board_addr_from_netdevice(const struct net_device * ifp)
 {
 	return (((uint64_t) ifp->dev_addr[0]) << 40)
 	     + (((uint64_t) ifp->dev_addr[1]) << 32)
@@ -97,8 +98,8 @@ omx_board_addr_from_netdevice(struct net_device * ifp)
 	     + (((uint64_t) ifp->dev_addr[5]) << 0);
 }
 
-static inline uint64_t
-omx_board_addr_from_ethhdr_src(struct ethhdr * eh)
+static inline __pure uint64_t
+omx_board_addr_from_ethhdr_src(const struct ethhdr * eh)
 {
 	BUILD_BUG_ON(sizeof(uint64_t) < sizeof(eh->h_source));
 	return (((uint64_t) eh->h_source[0]) << 40)

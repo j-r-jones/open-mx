@@ -25,7 +25,7 @@
  */
 
 omx_return_t
-omx__driver_set_hostname(uint32_t board_index, char *hostname)
+omx__driver_set_hostname(uint32_t board_index, const char *hostname)
 {
   struct omx_cmd_set_hostname set_hostname;
   int err;
@@ -68,7 +68,7 @@ omx__driver_clear_peer_names(void)
  */
 
 omx_return_t
-omx__driver_peer_add(uint64_t board_addr, char *hostname)
+omx__driver_peer_add(uint64_t board_addr, const char *hostname)
 {
   struct omx_cmd_misc_peer_info peer_info;
   int err;
@@ -96,7 +96,7 @@ omx__driver_peer_add(uint64_t board_addr, char *hostname)
 }
 
 omx_return_t
-omx__driver_peers_clear()
+omx__driver_peers_clear(void)
 {
   int err;
 
@@ -113,17 +113,28 @@ omx__driver_peers_clear()
 }
 
 omx_return_t
-omx__driver_get_peer_table_state(uint32_t *configured, uint32_t *version,
+omx__driver_get_peer_table_state(uint32_t *status, uint32_t *version,
 				 uint32_t *size, uint64_t *mapper_id)
 {
-  if (configured)
-    *configured = omx__driver_desc->peer_table_configured;
+  struct omx_cmd_peer_table_state state;
+  int err;
+
+  err = ioctl(omx__globals.control_fd, OMX_CMD_PEER_TABLE_GET_STATE, &state);
+  if (err < 0) {
+    omx_return_t ret = omx__ioctl_errno_to_return_checked(OMX_SUCCESS,
+							  "get peer table state");
+    /* let the caller handle errors */
+    return ret;
+  }
+
+  if (status)
+    *status = state.status;
   if (version)
-    *version = omx__driver_desc->peer_table_version;
+    *version = state.version;
   if (size)
-    *size = omx__driver_desc->peer_table_size;
+    *size = state.size;
   if (mapper_id)
-    *mapper_id = omx__driver_desc->peer_table_mapper_id;
+    *mapper_id = state.mapper_id;
   return OMX_SUCCESS;
 }
 
@@ -134,7 +145,7 @@ omx__driver_set_peer_table_state(uint32_t configured, uint32_t version,
   struct omx_cmd_peer_table_state state;
   int err;
 
-  state.configured = configured;
+  state.status = configured ? OMX_PEER_TABLE_STATUS_CONFIGURED : 0;
   state.version = version;
   state.size = size;
   state.mapper_id = mapper_id;
@@ -210,7 +221,7 @@ omx__driver_peer_from_addr(uint64_t board_addr, char *hostname, uint32_t *index)
 }
 
 static INLINE omx_return_t
-omx__driver_peer_from_hostname(char *hostname, uint64_t *board_addr, uint32_t *index)
+omx__driver_peer_from_hostname(const char *hostname, uint64_t *board_addr, uint32_t *index)
 {
   struct omx_cmd_misc_peer_info peer_info;
   int err;

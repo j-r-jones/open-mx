@@ -201,10 +201,11 @@ omx_endpoints_cleanup(void)
  */
 
 static int
-omx_endpoint_open(struct omx_endpoint * endpoint, void __user * uparam)
+omx_endpoint_open(struct omx_endpoint * endpoint, const void __user * uparam)
 {
 	struct omx_cmd_open_endpoint param;
 	struct net_device *ifp;
+	unsigned rx_coalesce;
 	int ret;
 
 	ret = copy_from_user(&param, uparam, sizeof(param));
@@ -246,12 +247,9 @@ omx_endpoint_open(struct omx_endpoint * endpoint, void __user * uparam)
 		endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_IFACE_DOWN;
 	if (ifp->mtu < OMX_MTU)
 		endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_IFACE_BAD_MTU;
-	if (ifp->ethtool_ops && ifp->ethtool_ops->get_coalesce) {
-		struct ethtool_coalesce coal;
-		ifp->ethtool_ops->get_coalesce(ifp, &coal);
-		if (coal.rx_coalesce_usecs >= OMX_IFACE_RX_USECS_WARN_MIN)
-			endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_IFACE_HIGH_INTRCOAL;
-	}
+	if (!omx_iface_get_rx_coalesce(ifp, &rx_coalesce)
+	    && rx_coalesce >= OMX_IFACE_RX_USECS_WARN_MIN)
+		endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_IFACE_HIGH_INTRCOAL;
 
 	return 0;
 
@@ -333,7 +331,7 @@ omx_endpoint_close(struct omx_endpoint * endpoint,
 
 /* maybe called by the bottom half */
 struct omx_endpoint *
-omx_endpoint_acquire_by_iface_index(struct omx_iface * iface, uint8_t index)
+omx_endpoint_acquire_by_iface_index(const struct omx_iface * iface, uint8_t index)
 {
 	struct omx_endpoint * endpoint;
 	int err;
@@ -439,22 +437,6 @@ static int (*omx_ioctl_with_endpoint_handlers[])(struct omx_endpoint * endpoint,
 	[OMX_CMD_HANDLER_OFFSET(OMX_CMD_WAKEUP)]		= omx_ioctl_wakeup,
 };
 
-/* call the ioctl handler assuming the caller checked the index */
-static INLINE long
-omx_handle_ioctl_with_endpoint(struct file *file, unsigned handler_offset, void __user * uparam)
-{
-	struct omx_endpoint * endpoint = file->private_data;
-
-	/*
-	 * the endpoint is already acquired by the file,
-	 * just check its status
-	 */
-	if (unlikely(endpoint->status != OMX_ENDPOINT_STATUS_OK))
-		return -EINVAL;
-
-	return omx_ioctl_with_endpoint_handlers[(unsigned char) handler_offset](endpoint, uparam);
-}
-
 /*
  * Main ioctl switch where all application ioctls arrive
  */
@@ -465,11 +447,20 @@ omx_miscdev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	unsigned handler_offset = OMX_CMD_HANDLER_SHIFT(cmd_index); /* unsigned, so that we don't have to check >= 0 */
 	int ret = 0;
 
-#ifndef OMX_DRIVER_DEBUG
-	/* optimize the send case */
-	if (likely(handler_offset < ARRAY_SIZE(omx_ioctl_with_endpoint_handlers)))
-		return omx_handle_ioctl_with_endpoint(file, handler_offset, (void __user *) arg);
-#endif
+	/* optimize the critical path case */
+	if (likely(handler_offset < ARRAY_SIZE(omx_ioctl_with_endpoint_handlers))) {
+		struct omx_endpoint * endpoint = file->private_data;
+
+		/*
+		 * the endpoint is already acquired by the file,
+		 * just check its status
+		 */
+		if (unlikely(endpoint->status != OMX_ENDPOINT_STATUS_OK))
+			return -EINVAL;
+
+		/* omx_dev_init() takes care fo checking that the handler isn't NULL */
+		return omx_ioctl_with_endpoint_handlers[(unsigned char) handler_offset](endpoint, (void __user *) arg);
+	}
 
 	switch (cmd) {
 
@@ -596,12 +587,22 @@ omx_miscdev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		break;
 	}
 
-	case OMX_CMD_PEER_TABLE_SET_STATE: {
+	case OMX_CMD_PEER_TABLE_GET_STATE: {
 		struct omx_cmd_peer_table_state state;
 
-		ret = -EPERM;
-		if (!OMX_HAS_USER_RIGHT(PEERTABLE))
-			goto out;
+		omx_peer_table_get_state(&state);
+
+		ret = copy_to_user((void __user *) arg, &state,
+				   sizeof(state));
+		if (unlikely(ret != 0)) {
+			ret = -EFAULT;
+			printk(KERN_ERR "Open-MX: Failed to write get peer table state command result, error %d\n", ret);
+		}
+		break;
+	}
+
+	case OMX_CMD_PEER_TABLE_SET_STATE: {
+		struct omx_cmd_peer_table_state state;
 
 		ret = copy_from_user(&state, (void __user *) arg,
 				     sizeof(state));
@@ -611,10 +612,7 @@ omx_miscdev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto out;
 		}
 
-		omx_driver_userdesc->peer_table_configured = state.configured;
-		omx_driver_userdesc->peer_table_version = state.version;
-		omx_driver_userdesc->peer_table_size = state.size;
-		omx_driver_userdesc->peer_table_mapper_id = state.mapper_id;
+		ret = omx_peer_table_set_state(&state);
 		break;
 	}
 
@@ -730,13 +728,8 @@ omx_miscdev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	case OMX_CMD_DESTROY_USER_REGION:
 	case OMX_CMD_WAIT_EVENT:
 	case OMX_CMD_WAKEUP:
-	{
-		BUG_ON(handler_offset >= ARRAY_SIZE(omx_ioctl_with_endpoint_handlers));
-		BUG_ON(omx_ioctl_with_endpoint_handlers[(unsigned char) handler_offset] == NULL);
-
-		ret = omx_handle_ioctl_with_endpoint(file, handler_offset, (void __user *) arg);
-		break;
-	}
+		/* this should be handled in the fast path */
+		BUG();
 
 	default:
 		ret = -ENOSYS;

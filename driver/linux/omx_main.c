@@ -40,13 +40,13 @@
 
 /* allow module parameters to be ignored when not supporting */
 
-int /* not static since maybe unused (and __maybe_unused appeared in 2.6.23) */
+static int __maybe_unused
 omx_unavail_module_param_set(const char *buf, struct kernel_param *kp)
 {
 	printk(KERN_INFO "Open-MX: WARNING: %s\n", (char*) kp->arg);
 	return 0;
 }
-int /* not static since maybe unused (and __maybe_unused appeared in 2.6.23) */
+static int __maybe_unused
 omx_unavail_module_param_get(char *buffer, struct kernel_param *kp)
 {                                                               \
 	return sprintf(buffer, "0");
@@ -217,7 +217,8 @@ omx_driver_userdesc_update_handler(unsigned long data)
 	u64 current_jiffies = get_jiffies_64();
 	omx_driver_userdesc->jiffies = current_jiffies;
 	wmb();
-	__mod_timer(&omx_driver_userdesc_update_timer, current_jiffies + 1);
+	/* timer already expired, use the regular mod_timer() */
+	mod_timer(&omx_driver_userdesc_update_timer, current_jiffies + 1);
 }
 
 static int
@@ -436,10 +437,6 @@ omx_init(void)
 	omx_driver_userdesc->peer_max = omx_peer_max;
 	omx_driver_userdesc->hz = HZ;
 	omx_driver_userdesc->jiffies = get_jiffies_64();
-	omx_driver_userdesc->peer_table_configured = 0;
-	omx_driver_userdesc->peer_table_version = 0;
-	omx_driver_userdesc->peer_table_size = 0;
-	omx_driver_userdesc->peer_table_mapper_id = -1;
 
 	/* check some module parameters */
 	if (omx_pin_synchronous && omx_pin_progressive) {
@@ -481,7 +478,8 @@ omx_init(void)
 
 	/* setup a timer to update jiffies in the driver user descriptor */
 	setup_timer(&omx_driver_userdesc_update_timer, omx_driver_userdesc_update_handler, 0);
-	__mod_timer(&omx_driver_userdesc_update_timer, get_jiffies_64() + 1);
+	/* timer not pending yet, use the regular mod_timer() */
+	mod_timer(&omx_driver_userdesc_update_timer, get_jiffies_64() + 1);
 
 	ret = omx_dma_init();
 	if (ret < 0)

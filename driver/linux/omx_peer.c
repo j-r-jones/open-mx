@@ -38,7 +38,15 @@
 static struct omx_peer ** omx_peer_array;
 static struct list_head * omx_peer_addr_hash_array;
 static int omx_peer_next_nr;
+static int omx_peer_table_full;
 static struct list_head omx_host_query_peer_list;
+
+static struct omx_cmd_peer_table_state omx_peer_table_state = {
+	.status = 0,
+	.version = 0,
+	.size = 0,
+	.mapper_id = -1,
+};
 
  /*
   * Big mutex protecting concurrent modifications of the peer table:
@@ -62,7 +70,7 @@ static int omx_host_query_magic = 0x13052008;
  * Peer Table Management
  */
 
-static INLINE uint8_t
+static INLINE __pure uint8_t
 omx_peer_addr_hash(uint64_t board_addr)
 {
 	uint32_t tmp24;
@@ -130,12 +138,14 @@ omx_peers_clear(int local)
 		}
 	}
 	omx_peer_next_nr = 0;
+	omx_peer_table_full = 0;
+	omx_peer_table_state.status &= ~OMX_PEER_TABLE_STATUS_FULL;
 
 	mutex_unlock(&omx_peers_mutex);
 }
 
 int
-omx_peer_add(uint64_t board_addr, char *hostname)
+omx_peer_add(uint64_t board_addr, const char *hostname)
 {
 	struct omx_peer * peer;
 	struct omx_iface * iface;
@@ -166,8 +176,16 @@ omx_peer_add(uint64_t board_addr, char *hostname)
 	/* if not already hashed, check that we can get a new peer index */
 	if (!already_hashed) {
 		err = -ENOMEM;
-		if (omx_peer_next_nr == omx_peer_max)
+		if (omx_peer_next_nr == omx_peer_max) {
+			/* only warn once when failing to add a remote peer */
+			if (!omx_peer_table_full) {
+				printk(KERN_INFO "Failed to add peer addr %012llx name %s, peer table is full\n",
+				       (unsigned long long) board_addr, hostname ? hostname : "<unknown>");
+			}
+			omx_peer_table_full = 1;
+			omx_peer_table_state.status |= OMX_PEER_TABLE_STATUS_FULL;
 			goto out_with_mutex;
+		}
 		peer = NULL;
 	}
 
@@ -337,8 +355,14 @@ omx_peers_notify_iface_attach(struct omx_iface * iface)
 	/* the iface is not in the peer table yet, add it */
 
 	err = -ENOMEM;
-	if (omx_peer_next_nr == omx_peer_max)
+	if (omx_peer_next_nr == omx_peer_max) {
+		/* always warn when failing to add a local iface */
+		printk(KERN_INFO "Failed to attach local iface %s (%s) with address %012llx, peer table is full\n",
+		       iface->eth_ifp->name, ifacepeer->hostname, (unsigned long long) board_addr);
+		omx_peer_table_full = 1;
+		omx_peer_table_state.status |= OMX_PEER_TABLE_STATUS_FULL;
 		goto out_with_mutex;
+	}
 
 	/* this is a new peer, allocate an index and hash it */
 	index = omx_peer_next_nr;
@@ -608,7 +632,7 @@ omx_peer_lookup_by_addr(uint64_t board_addr,
  * Cannot be called by BH.
  */
 int
-omx_peer_lookup_by_hostname(char *hostname,
+omx_peer_lookup_by_hostname(const char *hostname,
 			    uint64_t *board_addr, uint32_t *index)
 {
 	int i;
@@ -666,7 +690,7 @@ omx_peer_host_query_send_iface_handler(struct omx_iface * iface, void * data)
 }
 
 static void
-omx_peer_host_query(struct omx_peer *peer)
+omx_peer_host_query(const struct omx_peer *peer)
 {
 	uint64_t peer_addr = peer->board_addr;
 	uint16_t peer_index = peer->index;
@@ -975,6 +999,32 @@ omx_peers_clear_names(void)
 	mutex_unlock(&omx_peers_mutex);
 }
 
+/***************************
+ * Peer Table Set/Get State
+ */
+
+void
+omx_peer_table_get_state(struct omx_cmd_peer_table_state *state)
+{
+	memcpy(state, &omx_peer_table_state, sizeof(omx_peer_table_state));
+}
+
+int
+omx_peer_table_set_state(const struct omx_cmd_peer_table_state *state)
+{
+	if (!OMX_HAS_USER_RIGHT(PEERTABLE))
+		return -EPERM;
+
+	/* replace setmask bits with the given ones */
+	omx_peer_table_state.status &= ~OMX_PEER_TABLE_STATUS_SETMASK;
+	omx_peer_table_state.status |= (state->status & OMX_PEER_TABLE_STATUS_SETMASK);
+
+	omx_peer_table_state.version = state->version;
+	omx_peer_table_state.size = state->size;
+	omx_peer_table_state.mapper_id = state->mapper_id;
+	return 0;
+}
+
 /***********************
  * Peer Table Init/Exit
  */
@@ -991,6 +1041,8 @@ omx_peers_init(void)
 	mutex_init(&omx_peers_mutex);
 
 	omx_peer_next_nr = 0;
+	omx_peer_table_full = 0;
+	omx_peer_table_state.status &= ~OMX_PEER_TABLE_STATUS_FULL;
 
 	omx_peer_array = vmalloc(omx_peer_max * sizeof(*omx_peer_array));
 	if (!omx_peer_array) {

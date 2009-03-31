@@ -1,4 +1,13 @@
-* document omx_init config file options
+* add pure attributes in the common directory as well
+
+* constify the open-mx interface (let's also this change for 1.1)?
+
+* add restrict when c99 is enabled?
+
+* try get_user_pages_fast() with 32pages chunks or so
+
+* switch to automake once it supports CC foo.c
+  + link tools/tests dynamically and let libtool add rpath
 
 * stop supporting mtu!=1500/9000 ?
   + go back to mtu/wire-compat indep library, with send
@@ -111,7 +120,6 @@
 * 64bit internals by default
 * 64bit API by default, unless OMX_32BITS_LENGTH is defined
   + how to force the #define OMX_32BITS_LENGTH once compiled and installed?
-* --enable-32b/64b
 
 * look at vringfd (http://lwn.net/Articles/276364/) to replace event ring
 
@@ -173,6 +181,10 @@
 
 * add warning about mtu in nic/switches when truncated packet arrives, with printk_rate
 
+=== things to drop in 1.2
+* IFACES in the config file instead of OMX_IFACES
+* make installonly
+
 === obsolete ideas
 * why shared memory from/to same send and recv buffer is very bad from 64k+ 128k ?
 * change --iface into ---iface, and use --iface as a "close when no more endpoint"
@@ -184,3 +196,5 @@
 * make shared comms runtime-configurable in the driver
 * use mediumva for shared medium? seems slower
   + and mediums are not that useful for shared anyway (lower rndv threshold)
+* fix make install -j
+  + just support make -j followed by make install -j, otherwise it's a useless mess

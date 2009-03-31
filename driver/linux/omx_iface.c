@@ -90,7 +90,7 @@ omx_iface_find_by_index_lock(int board_index)
  * Should be used when an incoming packets has been received by ifp.
  */
 struct omx_iface *
-omx_iface_find_by_ifp(struct net_device *ifp)
+omx_iface_find_by_ifp(const struct net_device *ifp)
 {
 	int i;
 
@@ -157,6 +157,7 @@ omx_iface_get_info(uint32_t board_index, struct omx_board_info *info)
 {
 	struct omx_iface * iface;
 	struct net_device * ifp;
+	unsigned rx_coalesce;
 	int ret;
 
 	BUILD_BUG_ON(OMX_IF_NAMESIZE != IFNAMSIZ);
@@ -194,6 +195,16 @@ omx_iface_get_info(uint32_t board_index, struct omx_board_info *info)
 		info->ifacename[OMX_IF_NAMESIZE-1] = '\0';
 		strncpy(info->hostname, iface->peer.hostname, OMX_HOSTNAMELEN_MAX);
 		info->hostname[OMX_HOSTNAMELEN_MAX-1] = '\0';
+
+		info->mtu = ifp->mtu;
+		info->status = 0;
+		if (!(dev_get_flags(ifp) & IFF_UP))
+			info->status |= OMX_BOARD_INFO_STATUS_DOWN;
+		if (ifp->mtu < OMX_MTU)
+                	info->status |= OMX_BOARD_INFO_STATUS_BAD_MTU;
+		if (!omx_iface_get_rx_coalesce(ifp, &rx_coalesce)
+		    && rx_coalesce >= OMX_IFACE_RX_USECS_WARN_MIN)
+			info->status |= OMX_BOARD_INFO_STATUS_HIGH_INTRCOAL;
 
 #ifdef CONFIG_PCI
 		dev = omx_ifp_to_dev(ifp);
@@ -253,7 +264,7 @@ omx_iface_get_counters(uint32_t board_index, int clear,
 }
 
 int
-omx_iface_set_hostname(uint32_t board_index, char * hostname)
+omx_iface_set_hostname(uint32_t board_index, const char * hostname)
 {
 	struct omx_iface * iface;
 	char * new_hostname, * old_hostname;
@@ -293,6 +304,21 @@ omx_iface_set_hostname(uint32_t board_index, char * hostname)
 	kfree(new_hostname);
  out:
 	return ret;
+}
+
+int
+omx_iface_get_rx_coalesce(struct net_device * ifp, unsigned *usecs)
+{
+	if (ifp->ethtool_ops && ifp->ethtool_ops->get_coalesce) {
+		struct ethtool_coalesce coal;
+		ifp->ethtool_ops->get_coalesce(ifp, &coal);
+		if (coal.use_adaptive_rx_coalesce)
+			*usecs = coal.rx_coalesce_usecs_low;
+		else
+			*usecs = coal.rx_coalesce_usecs;
+		return 0;
+	}
+	return -ENOSYS;
 }
 
 void
@@ -394,6 +420,7 @@ omx_iface_attach(struct net_device * ifp)
 	struct device *dev;
 	char *hostname;
 	unsigned mtu = ifp->mtu;
+	unsigned rx_coalesce;
 	int ret;
 	int i;
 
@@ -430,7 +457,7 @@ omx_iface_attach(struct net_device * ifp)
 
 		BUG_ON(!pdev->driver);
 		printk(KERN_INFO "Open-MX:   Interface '%s' is PCI device '%s' managed by driver '%s'\n",
-		       ifp->name, dev->bus_id, pdev->driver->name);
+		       ifp->name, omx_dev_name(dev), pdev->driver->name);
 	}
 #endif
 
@@ -440,14 +467,10 @@ omx_iface_attach(struct net_device * ifp)
 	if (mtu < OMX_MTU)
 		printk(KERN_WARNING "Open-MX:   WARNING: Interface '%s' MTU should be at least %d, current value %d might cause problems\n",
 		       ifp->name, OMX_MTU, mtu);
-
-	if (ifp->ethtool_ops && ifp->ethtool_ops->get_coalesce) {
-		struct ethtool_coalesce coal;
-		ifp->ethtool_ops->get_coalesce(ifp, &coal);
-		if (coal.rx_coalesce_usecs >= OMX_IFACE_RX_USECS_WARN_MIN)
-			printk(KERN_WARNING "Open-MX:   WARNING: Interface '%s' interrupt coalescing very high (%ldus)\n",
-			       ifp->name, (unsigned long) coal.rx_coalesce_usecs);
-	}
+	if (!omx_iface_get_rx_coalesce(ifp, &rx_coalesce)
+	    && rx_coalesce >= OMX_IFACE_RX_USECS_WARN_MIN)
+		printk(KERN_WARNING "Open-MX:   WARNING: Interface '%s' interrupt coalescing very high (%ldus)\n",
+		       ifp->name, (unsigned long) rx_coalesce);
 
 	hostname = kmalloc(OMX_HOSTNAMELEN_MAX, GFP_KERNEL);
 	if (!hostname) {
@@ -969,7 +992,7 @@ omx_remove_endpoint_desc_status_flag_handler(struct omx_endpoint *endpoint, void
  */
 static int
 omx_netdevice_notifier_cb(struct notifier_block *unused,
-			   unsigned long event, void *ptr)
+			  unsigned long event, void *ptr)
 {
 	struct net_device *ifp = (struct net_device *) ptr;
 	struct omx_iface * iface;

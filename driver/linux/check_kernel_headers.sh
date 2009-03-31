@@ -92,7 +92,20 @@ fi
 
 # API WORKAROUNDS
 
-# remap_vmalloc_range and vmalloc_user appeared in 2.6.18
+# vmalloc_user appeared in 2.6.18 but was broken until 2.6.19
+echo -n "  checking (in kernel headers) vmalloc_user availability... "
+if grep "vmalloc_user *(" ${LINUX_HDR}/include/linux/vmalloc.h > /dev/null ; then
+  if grep "LINUX_VERSION_CODE 132626" ${LINUX_BUILD}/include/linux/version.h > /dev/null ; then
+    echo broken, ignoring
+  else
+    echo "#define OMX_HAVE_VMALLOC_USER 1" >> ${TMP_CHECKS_NAME}
+    echo yes
+  fi
+else
+  echo no
+fi
+
+# remap_vmalloc_range appeared in 2.6.18
 echo -n "  checking (in kernel headers) remap_vmalloc_range availability ... "
 if grep "remap_vmalloc_range *(" ${LINUX_HDR}/include/linux/vmalloc.h > /dev/null ; then
   echo "#define OMX_HAVE_REMAP_VMALLOC_RANGE 1" >> ${TMP_CHECKS_NAME}
@@ -192,6 +205,24 @@ if test -e ${LINUX_HDR}/include/linux/dmaengine.h > /dev/null ; then
     echo "#define OMX_HAVE_OLD_DMA_ENGINE_API 1" >> ${TMP_CHECKS_NAME}
     echo "yes, the old one"
   fi
+else
+  echo no
+fi
+
+# dev_name added in 2.6.26 and bus_id removed in 2.6.23
+echo -n "  checking (in kernel headers) whether dev_name is available ..."
+if grep -w "dev_name" ${LINUX_HDR}/include/linux/device.h > /dev/null ; then
+  echo "#define OMX_HAVE_DEV_NAME 1" >> ${TMP_CHECKS_NAME}
+  echo yes
+else
+  echo no
+fi
+
+# __mod_timer removed and __mod_timer_pending added in 2.6.30
+echo -n "  checking (in kernel headers) whether mod_timer_pending is available ..."
+if grep -w "mod_timer_pending" ${LINUX_HDR}/include/linux/timer.h > /dev/null ; then
+  echo "#define OMX_HAVE_MOD_TIMER_PENDING 1" >> ${TMP_CHECKS_NAME}
+  echo yes
 else
   echo no
 fi

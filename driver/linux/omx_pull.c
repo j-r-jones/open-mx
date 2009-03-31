@@ -522,9 +522,9 @@ omx_endpoint_pull_handles_exit(struct omx_endpoint * endpoint)
  */
 
 static INLINE int
-omx_pull_handle_pkt_hdr_fill(struct omx_endpoint * endpoint,
+omx_pull_handle_pkt_hdr_fill(const struct omx_endpoint * endpoint,
 			     struct omx_pull_handle * handle,
-			     struct omx_cmd_pull * cmd)
+			     const struct omx_cmd_pull * cmd)
 {
 	struct omx_iface * iface = endpoint->iface;
 	struct net_device * ifp = iface->eth_ifp;
@@ -570,8 +570,8 @@ omx_pull_handle_pkt_hdr_fill(struct omx_endpoint * endpoint,
  */
 static INLINE struct omx_pull_handle *
 omx_pull_handle_create(struct omx_endpoint * endpoint,
-		       struct omx_user_region * region,
-		       struct omx_cmd_pull * cmd)
+		       const struct omx_user_region * region,
+		       const struct omx_cmd_pull * cmd)
 {
 	struct omx_pull_handle * handle;
 	int i;
@@ -603,7 +603,7 @@ omx_pull_handle_create(struct omx_endpoint * endpoint,
 	/* we are good now, finish filling the handle */
 	kref_init(&handle->refcount); /* the timer's reference */
 	handle->endpoint = endpoint;
-	handle->region = region;
+	handle->region = (struct omx_user_region *) region;
 	handle->total_length = cmd->length;
 	handle->pulled_rdma_offset = cmd->pulled_rdma_offset;
 
@@ -808,9 +808,9 @@ omx_pull_handle_first_block_done(struct omx_pull_handle * handle)
 
 /* Called with the handle acquired and locked */
 static INLINE struct sk_buff *
-omx_fill_pull_block_request(struct omx_pull_handle * handle, int desc_nr)
+omx_fill_pull_block_request(const struct omx_pull_handle * handle, int desc_nr)
 {
-	struct omx_pull_block_desc * desc = &handle->block_desc[desc_nr];
+	const struct omx_pull_block_desc * desc = &handle->block_desc[desc_nr];
 	struct omx_iface * iface = handle->endpoint->iface;
 	uint32_t frame_index = desc->frame_index;
 	uint32_t block_length = desc->block_length;
@@ -948,8 +948,9 @@ omx_ioctl_pull(struct omx_endpoint * endpoint,
 
  skbs_ready:
 	/* schedule the timeout handler now that we are ready to send the requests */
-	__mod_timer(&handle->retransmit_timer,
-		    get_jiffies_64() + OMX_PULL_RETRANSMIT_TIMEOUT_JIFFIES);
+	/* timer not pending yet, use the regular mod_timer() */
+	mod_timer(&handle->retransmit_timer,
+		  get_jiffies_64() + OMX_PULL_RETRANSMIT_TIMEOUT_JIFFIES);
 
 	/*
 	 * do not keep the lock while sending
@@ -1020,6 +1021,7 @@ omx_progress_pull_on_handle_timeout_handle_locked(struct omx_iface * iface,
 	omx_pull_handle_poll_dma_completions(handle);
 
 	/* reschedule another timeout handler */
+	/* timer already expired, use the regular mod_timer() */
 	mod_timer(&handle->retransmit_timer,
 		  get_jiffies_64() + OMX_PULL_RETRANSMIT_TIMEOUT_JIFFIES);
 
@@ -1643,8 +1645,9 @@ omx_progress_pull_on_recv_pull_reply_locked(struct omx_iface * iface,
 	}
 
 	/* reschedule the timeout handler now that we are ready to send the requests */
-	mod_timer(&handle->retransmit_timer,
-		  get_jiffies_64() + OMX_PULL_RETRANSMIT_TIMEOUT_JIFFIES);
+	/* timer still pending, use the mod_timer_pending() */
+	omx_mod_timer_pending(&handle->retransmit_timer,
+			      get_jiffies_64() + OMX_PULL_RETRANSMIT_TIMEOUT_JIFFIES);
 
 	/*
 	 * do not keep the lock while sending

@@ -28,7 +28,7 @@
  * Management of errors
  */
 
-omx_return_t
+__pure omx_return_t
 omx__errno_to_return(void)
 {
   switch (errno) {
@@ -88,7 +88,7 @@ omx__ioctl_errno_to_return_checked(omx_return_t ok, ...)
   omx__abort(NULL, "Failed to %s, driver replied %m\n", callermsg);
 }
 
-const char *
+__pure const char *
 omx__strreqtype(enum omx__request_type type)
 {
   switch (type) {
@@ -149,7 +149,7 @@ omx__sprintf_reqstate(uint16_t state, char *str)
 }
 
 /* API omx_strerror */
-const char *
+__pure const char *
 omx_strerror(omx_return_t ret)
 {
   switch (ret) {
@@ -369,8 +369,8 @@ omx_cancel_notest(omx_endpoint_t ep,
 }
 
 #define OMX_MESSAGE_PREFIX_LENGTH_MAX 256
-char *
-omx__create_message_prefix(struct omx_endpoint *ep)
+__malloc char *
+omx__create_message_prefix(const struct omx_endpoint *ep)
 {
   char * buffer, *src, *dst, *c;
   int len;

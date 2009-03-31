@@ -24,16 +24,55 @@
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 
-#ifdef OMX_HAVE_REMAP_VMALLOC_RANGE
+/* __maybe_unused appeared in 2.6.22 */
+#ifndef __maybe_unused
+#define __maybe_unused /* not implemented */
+#endif
+
+/* __pure appeared in 2.6.21 */
+#ifndef __pure
+/* __attribute_pure__ disappeared in 2.6.23 */
+#ifdef __attribute_pure__
+#define __pure __attribute_pure__
+#else
+#define __pure /* not implemented */
+#endif
+#endif
+
+#ifdef OMX_HAVE_VMALLOC_USER
 #define omx_vmalloc_user vmalloc_user
-#define omx_remap_vmalloc_range remap_vmalloc_range
-#else /* !OMX_HAVE_REMAP_VMALLOC_RANGE */
+#else /* !OMX_HAVE_VMALLOC_USER */
+#include <asm/pgtable.h>
 static inline void *
 omx_vmalloc_user(unsigned long size)
 {
-	return __vmalloc(size, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, PAGE_KERNEL);
-}
+	/* don't pass __GFP_ZERO since cache_grow() would BUG() in <=2.6.18 */
+	void * buf = __vmalloc(size, GFP_KERNEL | __GFP_HIGHMEM, PAGE_KERNEL);
+	if (buf) {
+		/*
+		 * We cannot set VM_USERMAP since __find_vm_area() is not exported.
+		 * But remap_vmalloc_range() requires it, see below
+		 */
 
+		/* memset since we didn't pass __GFP_ZERO above */
+		memset(buf, 0, size);
+	}
+
+	return buf;
+}
+#endif /* !OMX_HAVE_VMALLOC_USER */
+
+#if (defined OMX_HAVE_REMAP_VMALLOC_RANGE) && !(defined OMX_HAVE_VMALLOC_USER)
+/*
+ * Do not use the official remap_vmalloc_range() since it requires VM_USERMAP
+ * in the area flags but our omx_vmalloc_user() above could not set it.
+ */
+#undef OMX_HAVE_REMAP_VMALLOC_RANGE
+#endif
+
+#ifdef OMX_HAVE_REMAP_VMALLOC_RANGE
+#define omx_remap_vmalloc_range remap_vmalloc_range
+#else /* !OMX_HAVE_REMAP_VMALLOC_RANGE */
 static inline int
 omx_remap_vmalloc_range(struct vm_area_struct *vma, void *addr, unsigned long pgoff)
 {
@@ -115,7 +154,7 @@ list_entry((ptr)->next, type, member)
 
 /* dev_to_node appeared in 2.6.20 */
 #ifdef OMX_HAVE_DEV_TO_NODE
-static inline int
+static inline __pure int
 omx_ifp_node(struct net_device *ifp)
 {
   struct device *dev = omx_ifp_to_dev(ifp);
@@ -189,6 +228,18 @@ typedef struct work_struct * omx_work_struct_data_t;
 #define OMX_DMA_ENGINE_CONFIG_STR "CONFIG_DMA_ENGINE"
 
 #endif /* !OMX_HAVE_{OLD_,}DMA_ENGINE_API */
+
+#ifdef OMX_HAVE_DEV_NAME
+#define omx_dev_name dev_name
+#else
+#define omx_dev_name(dev) ((dev)->bus_id)
+#endif
+
+#ifdef OMX_HAVE_MOD_TIMER_PENDING
+#define omx_mod_timer_pending mod_timer_pending
+#else
+#define omx_mod_timer_pending __mod_timer
+#endif
 
 #endif /* __omx_hal_h__ */
 

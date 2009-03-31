@@ -1,4 +1,8 @@
+prefix	=	@prefix@
+
 include @abs_top_srcdir@/common.mk
+
+LN_S	=	@LN_S@
 
 TARGETS	=	@LIB_TARGETS@
 
@@ -7,10 +11,12 @@ TARGETS	=	@LIB_TARGETS@
 all depend clean:
 	$(CMDPREFIX) +for dir in $(TARGETS) ; do $(MAKE) -C $$dir $@ ; done
 
-install: all installonly
-
-installonly:
+install installonly:
 	$(CMDPREFIX) +for dir in $(TARGETS) ; do $(MAKE) -C $$dir $@ ; done
+	$(CMDPREFIX) if test x@INSTALL_LIB_LINKTARGET@ != x -a ! -e $(prefix)/lib; then \
+		$(CMDECHOAFTERPREFIX) "  LN      lib" ; \
+		$(LN_S) @INSTALL_LIB_LINKTARGET@ $(prefix)/lib ; \
+	fi
 
 distclean:
 	$(CMDPREFIX) +for dir in $(TARGETS) ; do $(MAKE) -C $$dir $@ ; rm -rf $$dir ; done

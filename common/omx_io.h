@@ -34,7 +34,7 @@
  * or modified, or when the user-mapped driver- and endpoint-descriptors
  * are modified.
  */
-#define OMX_DRIVER_ABI_VERSION		0x208
+#define OMX_DRIVER_ABI_VERSION		0x20c
 
 /************************
  * Common parameters or IOCTL subtypes
@@ -101,25 +101,17 @@ struct omx_driver_desc {
 	uint32_t abi_config;
 	/* 8 */
 	uint32_t features;
-	uint32_t pad0;
+	uint32_t board_max;
 	/* 16 */
-	uint64_t jiffies;
+	uint32_t endpoint_max;
+	uint32_t peer_max;
 	/* 24 */
+	uint64_t jiffies;
+	/* 32 */
 	uint32_t hz;
 	uint16_t mtu;
 	uint16_t medium_frag_length_max;
-	/* 32 */
-	uint32_t board_max;
-	uint32_t endpoint_max;
 	/* 40 */
-	uint32_t peer_max;
-	uint32_t peer_table_size;
-	/* 48 */
-	uint32_t peer_table_configured;
-	uint32_t peer_table_version;
-	/* 56 */
-	uint64_t peer_table_mapper_id;
-	/* 64 */
 };
 
 #define OMX_DRIVER_DESC_SIZE	sizeof(struct omx_driver_desc)
@@ -157,6 +149,10 @@ struct omx_endpoint_desc {
 #define OMX_ENDPOINT_DESC_STATUS_IFACE_REMOVED (1ULL << 4)
 #define OMX_ENDPOINT_DESC_STATUS_IFACE_HIGH_INTRCOAL (1ULL << 5)
 
+#define OMX_BOARD_INFO_STATUS_DOWN (1ULL << 0)
+#define OMX_BOARD_INFO_STATUS_BAD_MTU (1ULL << 1)
+#define OMX_BOARD_INFO_STATUS_HIGH_INTRCOAL (1ULL << 2)
+
 /* only valid for get_info and get_counters */
 #define OMX_SHARED_FAKE_IFACE_INDEX 0xfffffffe
 
@@ -171,17 +167,20 @@ struct omx_cmd_get_board_info {
 	struct omx_board_info {
 		uint64_t addr;
 		/* 8 */
+		uint32_t mtu;
 		uint32_t numa_node;
-		uint32_t pad;
 		/* 16 */
+		uint32_t status;
+		uint32_t pad;
+		/* 24 */
 		char hostname[OMX_HOSTNAMELEN_MAX];
-		/* 96 */
+		/* 104 */
 		char ifacename[OMX_IF_NAMESIZE];
-		/* 112 */
+		/* 120 */
 		char drivername[OMX_DRIVER_NAMESIZE];
-		/* 128 */
+		/* 136 */
 	} info;
-	/* 136 */
+	/* 144 */
 };
 
 struct omx_cmd_get_endpoint_info {
@@ -228,8 +227,13 @@ struct omx_cmd_misc_peer_info {
 	/* 96 */
 };
 
+#define OMX_PEER_TABLE_STATUS_CONFIGURED	(1<<0)
+#define OMX_PEER_TABLE_STATUS_FULL		(1<<1)
+/* bits that are changed by the set ioctl */
+#define OMX_PEER_TABLE_STATUS_SETMASK		(OMX_PEER_TABLE_STATUS_CONFIGURED)
+
 struct omx_cmd_peer_table_state {
-	uint32_t configured;
+	uint32_t status;
 	uint32_t version;
 	/* 8 */
 	uint32_t size;
@@ -540,6 +544,7 @@ struct omx_cmd_bench {
 #define OMX_CMD_PEER_FROM_INDEX		_IOWR(OMX_CMD_MAGIC, 0x24, struct omx_cmd_misc_peer_info)
 #define OMX_CMD_PEER_FROM_ADDR		_IOWR(OMX_CMD_MAGIC, 0x25, struct omx_cmd_misc_peer_info)
 #define OMX_CMD_PEER_FROM_HOSTNAME	_IOWR(OMX_CMD_MAGIC, 0x26, struct omx_cmd_misc_peer_info)
+#define OMX_CMD_PEER_TABLE_GET_STATE	_IOR(OMX_CMD_MAGIC, 0x27, struct omx_cmd_peer_table_state)
 #define OMX_CMD_RAW_OPEN_ENDPOINT	_IOR(OMX_CMD_MAGIC, 0x30, struct omx_cmd_raw_open_endpoint)
 #define OMX_CMD_RAW_SEND		_IOR(OMX_CMD_MAGIC, 0x31, struct omx_cmd_raw_send)
 #define OMX_CMD_RAW_GET_EVENT		_IOWR(OMX_CMD_MAGIC, 0x32, struct omx_cmd_raw_get_event)
@@ -589,6 +594,8 @@ omx_strcmd(unsigned cmd)
 		return "Peer from Addr";
 	case OMX_CMD_PEER_FROM_HOSTNAME:
 		return "Peer from Hostname";
+	case OMX_CMD_PEER_TABLE_GET_STATE:
+		return "Get Peer Table State";
 	case OMX_CMD_RAW_OPEN_ENDPOINT:
 		return "Open Raw Endpoint";
 	case OMX_CMD_RAW_SEND:
