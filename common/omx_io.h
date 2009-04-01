@@ -389,6 +389,13 @@ struct omx_cmd_send_connect_request {
 	/* 24 */
 };
 
+struct omx_cmd_send_spam {
+        uint32_t nb;
+        uint16_t board_index;
+	uint16_t peer_index;
+        /* 8 */
+};
+
 struct omx_cmd_send_connect_reply {
 	uint16_t peer_index;
 	uint8_t dest_endpoint;
@@ -565,6 +572,7 @@ struct omx_cmd_bench {
 #define OMX_CMD_DESTROY_USER_REGION	_IOR(OMX_CMD_MAGIC, 0x8c, struct omx_cmd_destroy_user_region)
 #define OMX_CMD_WAIT_EVENT		_IOWR(OMX_CMD_MAGIC, 0x8d, struct omx_cmd_wait_event)
 #define OMX_CMD_WAKEUP			_IOR(OMX_CMD_MAGIC, 0x8e, struct omx_cmd_wakeup)
+#define OMX_CMD_SEND_SPAM	        _IOR(OMX_CMD_MAGIC, 0x8f, struct omx_cmd_send_spam)
 
 static inline const char *
 omx_strcmd(unsigned cmd)
@@ -622,6 +630,8 @@ omx_strcmd(unsigned cmd)
 		return "Send Notify";
 	case OMX_CMD_SEND_CONNECT_REQUEST:
 		return "Send Connect Request";
+	case OMX_CMD_SEND_SPAM:
+		return "Send Spam";
 	case OMX_CMD_SEND_CONNECT_REPLY:
 		return "Send Connect Reply";
 	case OMX_CMD_SEND_LIBACK:

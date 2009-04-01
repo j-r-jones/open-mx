@@ -19,6 +19,7 @@ CPPFLAGS	+=	@CPPFLAGS@
 
 omx_reg.o_CPPFLAGS		+=	-I@top_srcdir@/libopen-mx/ -I@top_builddir@/common/
 omx_cmd_bench.o_CPPFLAGS	+=	-I@top_srcdir@/libopen-mx/ -I@top_builddir@/common/
+omx_spam.o_CPPFLAGS		+=	-I@top_srcdir@/libopen-mx/ -I@top_builddir@/common/
 
 CFLAGS	+=	-Wall
 CFLAGS	+=	@CFLAGS@

@@ -1293,6 +1293,76 @@ omx_ioctl_bench(struct omx_endpoint * endpoint, void __user * uparam)
 	return ret;
 }
 
+int
+omx_ioctl_send_spam(void __user * uparam)
+{
+	struct sk_buff *skb;
+	struct omx_hdr *mh;
+	struct omx_pkt_head *ph;
+	struct ethhdr *eh;
+	struct omx_cmd_send_spam cmd;
+	struct omx_iface * iface;
+	struct net_device * ifp;
+	size_t hdr_len = 128;//sizeof(struct omx_pkt_head) + sizeof(struct omx_pkt_connect);
+	int ret, i;
+
+	ret = copy_from_user(&cmd, uparam, sizeof(cmd));
+	if (unlikely(ret != 0)) {
+		printk(KERN_ERR "Open-MX: Failed to read send connect request cmd hdr\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+        iface = omx_iface_find_by_index_lock(cmd.board_index);
+        if (iface == NULL) {
+                goto out;
+        }
+        ifp = iface->eth_ifp;
+
+        for(i=0 ; i<cmd.nb ; i++) {
+                skb = omx_new_skb(/* pad to ETH_ZLEN */
+                                  max_t(unsigned long, hdr_len, ETH_ZLEN));
+                if (unlikely(skb == NULL)) {
+                        omx_counter_inc(iface, SEND_NOMEM_SKB);
+                        printk(KERN_INFO "Open-MX: Failed to create connect skb\n");
+                        ret = -ENOMEM;
+                        goto out_with_iface;
+                }
+
+                /* locate headers */
+                mh = omx_skb_mac_header(skb);
+                ph = &mh->head;
+                eh = &ph->eth;
+
+                /* fill ethernet header */
+                eh->h_proto = __constant_cpu_to_be16(ETH_P_OMX);
+                memcpy(eh->h_source, ifp->dev_addr, sizeof (eh->h_source));
+
+                /* set destination peer */
+                ret = omx_set_target_peer(ph, cmd.peer_index);
+                if (ret < 0) {
+                        printk(KERN_INFO "Open-MX: Failed to fill target peer in connect header\n");
+                        goto out_with_skb;
+                }
+
+                /* fill omx header */
+                *(uint8_t*)(ph+1) = 0;
+
+                skb->dev = iface->eth_ifp;
+                dev_queue_xmit(skb);
+        }
+        omx_ifaces_unlock();
+
+	return 0;
+
+ out_with_skb:
+	kfree_skb(skb);
+ out_with_iface:
+        omx_ifaces_unlock();
+ out:
+	return ret;
+}
+
 /*
  * Local variables:
  *  tab-width: 8

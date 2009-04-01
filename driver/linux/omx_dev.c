@@ -713,6 +713,11 @@ omx_miscdev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		break;
 	}
 
+	case OMX_CMD_SEND_SPAM:
+                ret = omx_ioctl_send_spam((void __user *) arg);
+                break;
+
+
 	case OMX_CMD_BENCH:
 	case OMX_CMD_SEND_TINY:
 	case OMX_CMD_SEND_SMALL:
