@@ -311,6 +311,14 @@ omx_iface_get_rx_coalesce(struct net_device * ifp, unsigned *usecs)
 {
 	if (ifp->ethtool_ops && ifp->ethtool_ops->get_coalesce) {
 		struct ethtool_coalesce coal;
+
+		/*
+		 * most drivers don't say they don't support adaptive rx coalescing,
+		 * so mark it as unsupported by default
+		 */
+		memset(&coal, 0, sizeof(coal));
+		coal.cmd = ETHTOOL_GCOALESCE;
+
 		ifp->ethtool_ops->get_coalesce(ifp, &coal);
 		if (coal.use_adaptive_rx_coalesce)
 			*usecs = coal.rx_coalesce_usecs_low;
@@ -411,7 +419,7 @@ omx_for_each_endpoint_in_mm(struct mm_struct *mm,
 /*
  * Attach a new iface.
  *
- * Must be called with ifaces lock hold.
+ * Must be called with ifaces lock hold and with a reference onto the ifp.
  */
 static int
 omx_iface_attach(struct net_device * ifp)
@@ -427,13 +435,13 @@ omx_iface_attach(struct net_device * ifp)
 	if (omx_iface_nr == omx_iface_max) {
 		printk(KERN_ERR "Open-MX: Too many interfaces already attached\n");
 		ret = -EBUSY;
-		goto out_with_ifp_hold;
+		goto out;
 	}
 
 	if (omx_iface_find_by_ifp(ifp)) {
 		printk(KERN_ERR "Open-MX: Interface '%s' already attached\n", ifp->name);
 		ret = -EBUSY;
-		goto out_with_ifp_hold;
+		goto out;
 	}
 
 	for(i=0; i<omx_iface_max; i++)
@@ -444,7 +452,7 @@ omx_iface_attach(struct net_device * ifp)
 	if (!iface) {
 		printk(KERN_ERR "Open-MX: Failed to allocate interface as board %d\n", i);
 		ret = -ENOMEM;
-		goto out_with_ifp_hold;
+		goto out;
 	}
 
 	printk(KERN_INFO "Open-MX: Attaching %sEthernet interface '%s' as #%i, MTU=%d\n",
@@ -504,7 +512,9 @@ omx_iface_attach(struct net_device * ifp)
 	mutex_init(&iface->endpoints_mutex);
 
 	/* insert in the peer table */
-	omx_peers_notify_iface_attach(iface);
+	ret = omx_peers_notify_iface_attach(iface);
+	if (ret < 0)
+		goto out_with_raw;
 
 	iface->index = i;
 	omx_iface_nr++;
@@ -512,11 +522,14 @@ omx_iface_attach(struct net_device * ifp)
 
 	return 0;
 
+ out_with_raw:
+	omx_iface_raw_exit(&iface->raw);
+	kfree(iface->endpoints);
  out_with_iface_hostname:
 	kfree(hostname);
  out_with_iface:
 	kfree(iface);
- out_with_ifp_hold:
+ out:
 	return ret;
 }
 

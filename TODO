@@ -1,6 +1,4 @@
-* add pure attributes in the common directory as well
-
-* constify the open-mx interface (let's also this change for 1.1)?
+* constify the open-mx interface ?
 
 * add restrict when c99 is enabled?
 
@@ -8,6 +6,9 @@
 
 * switch to automake once it supports CC foo.c
   + link tools/tests dynamically and let libtool add rpath
+  + drop make install options, use configure options
+  + drop make install prefix=foo
+  + convert all .in files at configure instead of make install
 
 * stop supporting mtu!=1500/9000 ?
   + go back to mtu/wire-compat indep library, with send
@@ -36,6 +37,10 @@
   + pass a irq-name/pattern
 * add a tool to auto-tune the interface coalescing and binding?
   + do it within the startup script?
+
+* when removing a peer (for instance a local iface), make the index available again
+  in case of adding another peer/iface
+  + need to add omx_peers_nr since we only have omx_peer_next_nr
 
 * single cmd to send the whole mediumsq message, with single done event ?
   + get_user_pages/dev_queue_xmit, put_pages in the last callback

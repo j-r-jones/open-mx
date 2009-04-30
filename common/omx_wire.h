@@ -1,6 +1,6 @@
 /*
  * Open-MX
- * Copyright © INRIA 2007-2009 (see AUTHORS file)
+ * Copyright © INRIA, CNRS 2007-2009 (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
  *
@@ -18,6 +18,9 @@
 
 #ifndef __omx_wire_h__
 #define __omx_wire_h__
+
+/* bring __pure and friends */
+#include "omx_hal.h"
 
 /***************
  * Misc helpers
@@ -149,7 +152,7 @@ enum omx_pkt_type {
 
 typedef uint8_t omx_packet_type_t; /* don't use enum since it may end-up being stored on 32bits unless -fshort-enums is passed */
 
-static inline const char*
+static inline __pure const char*
 omx_strpkttype(enum omx_pkt_type ptype)
 {
 	switch (ptype) {
@@ -209,7 +212,7 @@ enum omx_nack_type {
 	OMX_NACK_TYPE_MAX,
 };
 
-static inline const char*
+static inline __pure const char*
 omx_strnacktype(enum omx_nack_type ntype)
 {
 	switch (ntype) {

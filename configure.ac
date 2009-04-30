@@ -1,5 +1,5 @@
 # Open-MX
-# Copyright © INRIA 2007-2009 (see AUTHORS file)
+# Copyright © INRIA, CNRS 2007-2009 (see AUTHORS file)
 #
 # The development of this software has been funded by Myricom, Inc.
 #
@@ -15,7 +15,7 @@
 # See the GNU General Public License in COPYING.GPL for more details.
 
 AC_INIT([Open-MX],
-        1.0.902,
+        1.1.0,
         [http://open-mx.org],
         open-mx)
 AC_CONFIG_SRCDIR(common/omx_io.h)
