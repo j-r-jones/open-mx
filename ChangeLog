@@ -1,3 +1,20 @@
+Open-MX 1.1.1 (June 22nd 2009, svn r26xy)
+=========================================
+The multirail release.
+
+Bug fixes:
+* Change some globals to endpoint-specific variables so that multiple 
+  endpoints within a single endpoint actually get their progression.
+* Fix the management of local peers when clearing the peer table.
+* Fix completion of requests in case of timeout.
+* Fix management of return and status codes in the MX ABI compatibility
+  wrappers.
+* Improve sanity checks for notify messages so as to prevent buggy
+  duplicate completion of large send requests.
+* Fix the periodical checking of the driver status in the library.
+* Fix MTU reporting in the driver status.
+* A couple other minor improvements.
+
 Open-MX 1.1.0 (April 27th 2009, svn r2576)
 ==========================================
 
