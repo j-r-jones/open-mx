@@ -1,30 +1,6 @@
-* constify the open-mx interface ?
-
-* add restrict when c99 is enabled?
-
 * try get_user_pages_fast() with 32pages chunks or so
 
-* switch to automake once it supports CC foo.c
-  + link tools/tests dynamically and let libtool add rpath
-  + drop make install options, use configure options
-  + drop make install prefix=foo
-  + convert all .in files at configure instead of make install
-
-* stop supporting mtu!=1500/9000 ?
-  + go back to mtu/wire-compat indep library, with send
-    function pointers initialized at connect
-    - how to generate the multiple instances ?
-
-* cleanup the skbfrags stuff:
-  + is it the number of attached frags, or also the linear part?
-  + enforce it or just try to optimize?
-  + fix the way to compute frags in medium_sends
-  + or just make it a binary?
-
 * how to tune mtu/packet-ring-size since 8k-mediums do not always help?
-
-* when invalidating a pinned region, change its status first, with a memory barrier
-  and rcu_synchronize if possible so that people using it are gone and won't come back
 
 * update all thresholds in non-wire-compat
   + make them configurable?
@@ -38,17 +14,6 @@
 * add a tool to auto-tune the interface coalescing and binding?
   + do it within the startup script?
 
-* when removing a peer (for instance a local iface), make the index available again
-  in case of adding another peer/iface
-  + need to add omx_peers_nr since we only have omx_peer_next_nr
-
-* single cmd to send the whole mediumsq message, with single done event ?
-  + get_user_pages/dev_queue_xmit, put_pages in the last callback
-  + less pipelining copy/queue_xmit
-
-* pre-alloc many requests in the critical path to avoid ENOMEM in the background later ?
-  + stop aborting on failure to alloc a fake recv notify when discard an unexp rndv
-
 * regcache
   + disable regcache in omx_rcache_test when the driver feature flag is missing
 * regcache malloc hook (if no driver feature flag)
@@ -58,137 +23,10 @@
 * if failing to deregister region
   *** glibc detected *** tests/omx_pingpong: malloc(): memory corruption: 0x000000000064edd0 ***
 
-* rework counters, distinguish packet/shared level transfer from
-  commands and events ?
-
-* add a flag in the endpoint desc for skbfrags
-  + use mediumva by default if not skbfrags
-  + add driver-specific skbfrags quirks?
-
-* constify the event queue as MX now does and mmap recvq+eventq's as RO
-  + update the latest processed event seqnum in all ioctls
-  + add an ioctl to update the latest processed event seqnum in the driver
-    when more than half of the ring has not been acknowledged
-
-* only poll what's really need to be polled in the progression loop
-  + only poll the exp event queue if some events are expected
-  + only if jiffies changed
-    - check enough progression
-    - resend queue
-    - partners to ack
-  + only process delayed requests if something happened in other loops
-  + what about check endpoint desc ?
-  + make request_alloc_check() called in debug only
-
-* endpoint_close cannot be called from interrupt context
-  + we can destroy region at first closing too?
-
-* cleanup endpoint acquiring/locking/closing again
-  + synchronize_rcu before freeing after unlinking
-  + rcu_deference+acquire+check status during ioctl and network
-  + stop allocating during the whole fd life
-  + drop free/init status
-  + drop the status_lock
-
-* drop the iface endpoint array mutex and use the big ifaces mutex?
-* drop the peer mutex as well since we have rcu everywhere?
-
-* cleanup the idr+BHlock for handles
-  + sleep if not enough slot available
-
-* fix/improve ioat support
-  + sleep a bit before polling on synchronous copies
-    - add an empirical ioat speed, tested at startup, tuned at runtime, configurable with a module param
-    - use the empirical ioat speed to sleep using msleep during large
-      synchronous copy instead of polling
-    - if copy completed on first poll, increase the speed by 12.5% or so
-    - no need to reduce the speed ever
-
-* support non-ethernet networks by providing ways to extract the mac address differently
-  + use eth_hdr(), dev->header_ops->create() and ->parse() to clarify the accessing
-    to eth headers of packets and make it less ethernet specific
-
-* affinity
-  + add OMX_BH_PREWARM_CACHE= to use non-temporal only if not on the process core
-    - store the process core binding when opening the endpoint
-      and assume the binding won't change if the env var was set
-
-* error handler when completing zombie send/recv only if ep totally open, with special message
-
-* drop no-progression-during-one-second warning if no requests are pending?
-  what's a pending request? anything but a posted recv?
-
-* resource allocation cleanups
-  + add a counter of failure to alloc small buffer with ENOMEM and abort if too many?
-  + add a counter of failure to pull with ENOMEM and abort if too many?
-
-* 64bit internals by default
-* 64bit API by default, unless OMX_32BITS_LENGTH is defined
-  + how to force the #define OMX_32BITS_LENGTH once compiled and installed?
-
-* look at vringfd (http://lwn.net/Articles/276364/) to replace event ring
-
-* endpoint parameters
-  + unexp queue length
-
-* don't free partner on disconnect since we can't change the session anymore?
-  + or randomify the initial session?
-
-* thread safety
-  + filter wakeup on recv/send/connect/...
-  + filter on specific request id too
-  + progress thread only woken up if nobody else
-  + split the progression timer out of the timeout timer and make it global
-    and wakeup a single process
-  + change the wakeup_jiffies mapped value into an ioctl parameter?
-  + add a last_poll_jiffies so that the driver knows if the progress thread is needed after a timeout
-
-* unlockify the ring management in the driver event reporting code
-  + use rcu to avoid having to lock the waiter's queue
-    - allocate the waiter struct and free it with a rcu_call
-  + atomic_test_and_set instead of spinlock to get a event slot? what about recv slot?
-    ok if lots of slices in parallel ?
-  + add a driver-private field in event where the reporter will test_and_set BUSY
-    before posting the event and finally posting the type and removing BUSY
-  + per cpu rings? not scalable with number of cups
-  + prefetch non-temporal from the event ring ro prevent cache line bounces?
-  + or write event with non-temporal? hard in the kernel
-
 * group similar fields in structure for cache effects, cache-align some fields?
   + add a counter per list and group them as well to reduce the progression loop overhead
 
-* skb_clone and alloc_skb_fclone for pull and pull replies?
-
-* wire compat
-  + fix lib ack contents?
-
-* use large region id in the lib, only allocate uint8_t id for the wire when
-  posting the rndv message or the pull request
-* export rdma_get and rdma window management functions
-* rdma_put
-* write parameter in ioctl to register a region, check it when reading/writing from/to the region
-  + different rdmawin id for sender/receiver
-    - no need to check for deadlock if too many sender's rdmawin registered
-
-* move recv lib in the kernel
-  + early ioatcopy expected medium, move the other in the recv ring, drop when no space anymore
-    - keep unexpected data in the ring for ever
-    - when unexpected is posted, notify the kernel that we acquired the ring slots and let it
-      finish receiving in the target buffer
-  + limit unexpq size to avoid memory starvation
-    - or allocate default unexp buffers upto 32kB
-    - use a usual recv queue for unexp?
-  + need to keep partner's recv_seqnum in the kernel
-    - and synchronize with user-space which takes care of acking
-    - share mapping of peer-index based array of recv seqnums between kernel and user-space?
-  + use ioat to offload the whole recv medium copy and wait in the last frag
-  + move the whole lib in the driver and only keep basic request status in userspace?
-
 * add warning about mtu in nic/switches when truncated packet arrives, with printk_rate
-
-=== things to drop in 1.2
-* IFACES in the config file instead of OMX_IFACES
-* make installonly
 
 === obsolete ideas
 * why shared memory from/to same send and recv buffer is very bad from 64k+ 128k ?
