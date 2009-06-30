@@ -406,7 +406,24 @@ omx__put_region(struct omx_endpoint *ep,
 void
 omx__regcache_clean(void *ptr, size_t size)
 {
-  printf("cleaning regcache %p-%ld\n", ptr, size);
+  void omx__endpoint_regcache_clean(struct omx_endpoint *ep) {
+    struct omx__large_region *region, *next;
+
+    OMX__ENDPOINT_LOCK(ep);
+    list_for_each_entry_safe(region, next, &ep->reg_list, reg_elt) {
+      if (region->segs.single.vaddr >= ptr && region->segs.single.len <= size) {
+        // If the segment is a subpart of [ptr:ptr+size]
+        if (!region->use_count) {
+          printf("cleaning regcache %p-%ld for ep %p and segment %ld:%ld\n", ptr, size, ep, region->segs.single.vaddr, region->segs.single.len);
+          list_del(&region->reg_unused_elt);
+          omx__destroy_region(ep, region);
+        }
+        // else warning try to free a region being used
+        }
+    }
+    OMX__ENDPOINT_UNLOCK(ep);
+  }
+  omx__foreach_endpoint(omx__endpoint_regcache_clean);
 }
 
 /***************************
