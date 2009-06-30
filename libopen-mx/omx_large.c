@@ -400,6 +400,16 @@ omx__put_region(struct omx_endpoint *ep,
 }
 
 /***************************
+ * Invalid Regcache Entries
+ */
+
+void
+omx__regcache_clean(void *ptr, size_t size)
+{
+  printf("cleaning regcache %p-%ld\n", ptr, size);
+}
+
+/***************************
  * Large Messages Managment
  */
 
