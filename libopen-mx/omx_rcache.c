@@ -4,8 +4,6 @@
 
 #include "omx_lib.h"
 
-#warning ah ha
-
 static void * omx___mremap(void *, size_t, size_t, int, void*) __asm__ ("__mremap");
 
 static void *
@@ -101,38 +99,44 @@ omx_regcache_hook(void)
   /* regcache does not work with static libc */
   if (&_DYNAMIC == 0)
     opt_rcache = 0;
-  else if (opt_rcache == 1)
-    opt_rcache = mx__regcache_works();
 
-  omx__verbose_printf(NULL, "regcache is %s\n", opt_rcache ? "enabled" : "disabled");
   if (opt_rcache) {
     __free_hook = free_hook;
     __malloc_hook = malloc_hook;
     __memalign_hook = memalign_hook;
     __realloc_hook = realloc_hook;
   }
+
+  if (opt_rcache == 1 && !omx__regcache_works()) {
+    omx__verbose_printf(NULL, "warning: regcache incompatible with malloc\n");
+    opt_rcache = 0;
+    __free_hook = NULL;
+    __malloc_hook = NULL;
+    __memalign_hook = NULL;
+    __realloc_hook = NULL;
+  }
+
+  omx__verbose_printf(NULL, "regcache is %s\n", opt_rcache ? "enabled" : "disabled");
 }
 
 void (*__malloc_initialize_hook)() = omx_regcache_hook;
 
-static int mx__hook_triggered;
-
-int mx__regcache_works()
+int omx__regcache_works()
 {
   static int works_ok = 0;
   static int already_called;
   if (already_called)
     return works_ok;
   already_called = 1;
-  mx__hook_triggered = 0;
+  omx__rcache_hook_triggered = 0;
   free(malloc(1));
   free(malloc(4*1024*1024));
   /* catching address space changes works if
       - static linking (libc/malloc uses our __munmap/__morecore)
       - malloc != libc_malloc (detected by __malloc_hook != 0)
   */
-  if ((&_DYNAMIC == 0 || __malloc_hook != 0) && mx__hook_triggered) {
-    //    __morecore = mx__morecore;
+  if ((&_DYNAMIC == 0 || __malloc_hook != 0) && omx__rcache_hook_triggered) {
+    __morecore = omx__morecore;
     works_ok = 1;
     return 1;
   }
