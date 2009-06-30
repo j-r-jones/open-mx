@@ -414,7 +414,7 @@ omx__regcache_clean(void *ptr, size_t size)
       if (region->segs.single.vaddr >= ptr && region->segs.single.len <= size) {
         // If the segment is a subpart of [ptr:ptr+size]
         if (!region->use_count) {
-          printf("cleaning regcache %p-%ld for ep %p and segment %ld:%ld\n", ptr, size, ep, region->segs.single.vaddr, region->segs.single.len);
+          omx__verbose_printf(NULL, "cleaning regcache %p-%ld for ep %p and segment %ld:%ld\n", ptr, size, ep, region->segs.single.vaddr, region->segs.single.len);
           list_del(&region->reg_unused_elt);
           omx__destroy_region(ep, region);
         }
