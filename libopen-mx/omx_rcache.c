@@ -97,16 +97,14 @@ realloc_hook(void *ptr,size_t len, const void * caller)
 void
 omx_regcache_hook(void)
 {
-//  char *s = getenv("MX_RCACHE");
-//  int opt_rcache;
-//  if (s)
-//    opt_rcache = (s[0] == '1' || s[0] == '2');
-//  else
-//    opt_rcache = MX_OS_LINUX;
-//  /* regcache does not work with static libc */
-//  if (&_DYNAMIC == 0)
-//    opt_rcache = 0;
-  int opt_rcache = 1;
+  int opt_rcache = omx__globals.regcache;
+  /* regcache does not work with static libc */
+  if (&_DYNAMIC == 0)
+    opt_rcache = 0;
+  else if (opt_rcache == 1)
+    opt_rcache = mx__regcache_works();
+
+  omx__verbose_printf(NULL, "regcache is %s\n", opt_rcache ? "enabled" : "disabled");
   if (opt_rcache) {
     __free_hook = free_hook;
     __malloc_hook = malloc_hook;
