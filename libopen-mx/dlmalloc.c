@@ -1,9 +1,9 @@
 #define _GNU_SOURCE 1
 //#include "mx_auto_config.h"
 #define USE_DL_PREFIX 1
-//#if MX_THREAD_SAFE || defined MX_VERSIONED_SYMS
-#define USE_MALLOC_LOCK 1
-//#endif
+#ifdef OMX_LIB_THREAD_SAFETY
+#  define USE_MALLOC_LOCK 1
+#endif
 #define HAVE_MMAP (!MX_OS_UDRV)
 /*
   This is a version (aka dlmalloc) of malloc/free/realloc written by
