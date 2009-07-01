@@ -4,18 +4,18 @@
 
 #include "omx_lib.h"
 
-static void * omx___mremap(void *, size_t, size_t, int, void*) __asm__ ("__mremap");
+void * omx___mremap(void *, size_t, size_t, int, void*) __asm__ ("__mremap");
 
-static void *
+void *
 omx___mremap(void *old_ptr, size_t old_size, size_t new_size, int maymove, void * extra)
 {
   omx__regcache_clean(old_ptr, old_size);
   return (void *) syscall(__NR_mremap, old_ptr, old_size, new_size, maymove, extra);
 }
 
-static void * omx__mremap(void *,size_t,size_t,int, void*) __asm__ ("mremap");
+void * omx__mremap(void *,size_t,size_t,int, void*) __asm__ ("mremap");
 
-static void *
+void *
 omx__mremap(void *old_ptr, size_t old_size, size_t new_size, int maymove, void *extra)
 {
   return omx___mremap(old_ptr, old_size, new_size, maymove, extra);
