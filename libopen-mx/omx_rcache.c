@@ -23,7 +23,7 @@ omx__mremap(void *old_ptr, size_t old_size, size_t new_size, int maymove, void *
 
 static int omx__rcache_hook_triggered;
 
-static int
+int
 __munmap(void *old_ptr, size_t old_size)
 {
   omx__rcache_hook_triggered = 1;
@@ -31,7 +31,7 @@ __munmap(void *old_ptr, size_t old_size)
   return syscall(__NR_munmap, old_ptr, old_size);
 }
 
-static int
+int
 munmap(void *old_ptr, size_t old_size)
 {
   return __munmap(old_ptr, old_size);
@@ -53,7 +53,7 @@ sbrk(intptr_t inc)
   return ptr;
 }
 
-static void *
+void *
 omx__morecore(intptr_t inc)
 {
   void *res = __sbrk(inc);
