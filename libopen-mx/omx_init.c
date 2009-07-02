@@ -460,7 +460,7 @@ omx__init_comms(void)
 			omx__globals.regcache ? "enabled" : "disabled");
   }
 
-  omx_regcache_hook();
+  omx_regcache_init();
 
   /******************
    * Process binding
