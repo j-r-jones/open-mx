@@ -403,21 +403,37 @@ omx__put_region(struct omx_endpoint *ep,
  * Invalid Regcache Entries
  */
 
+static INLINE int
+omx__segments_intersect(unsigned long begin1, unsigned long end1,
+			unsigned long begin2, unsigned long end2)
+{
+  /* [a:b] intersecs [c:d] if min(b,d) > max(a,c) */
+  unsigned long min_end = end1 > end2 ? end2 : end1;
+  unsigned long max_begin = begin1 > begin2 ? begin1 : begin2;
+  return min_end > max_begin;
+}
+
 void
 omx__regcache_clean(void *ptr, size_t size)
 {
+  unsigned long inval_begin = (uintptr_t) ptr;
+  unsigned long inval_end = inval_begin + size;
+
   void omx__endpoint_regcache_clean(struct omx_endpoint *ep) {
     struct omx__large_region *region, *next;
 
     OMX__ENDPOINT_LOCK(ep);
     list_for_each_entry_safe(region, next, &ep->reg_list, reg_elt) {
-      if (region->segs.single.vaddr >= (uintptr_t) ptr && region->segs.single.len <= size) {
-        // If the segment is a subpart of [ptr:ptr+size]
+      unsigned long reg_begin = region->segs.single.vaddr;
+      unsigned long reg_end = reg_begin + region->segs.single.len;
+
+      /* If the invalidated segment intersects the region segment */
+      if (omx__segments_intersect(inval_begin, inval_end, reg_begin, reg_end)) {
         if (!region->use_count) {
-          omx__verbose_printf(NULL, "cleaning regcache %p-%ld for ep %p and segment %p:%ld\n",
-			      ptr, (unsigned long) size,
-			      ep,
-			      (void *)(uintptr_t) region->segs.single.vaddr, (unsigned long) region->segs.single.len);
+          omx__verbose_printf(ep, "cleaning regcache [0x%lx:0x%lx] for region #%d segment [0x%lx:0x%lx]\n",
+			      inval_begin, inval_end,
+			      (unsigned) region->id,
+			      reg_begin, reg_end);
           list_del(&region->reg_unused_elt);
           omx__destroy_region(ep, region);
         }
