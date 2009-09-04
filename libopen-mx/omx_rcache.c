@@ -111,7 +111,7 @@ realloc_hook(void *ptr,size_t len, const void * caller)
 
 //static
 void
-omx_regcache_init(void)
+omx__regcache_init(void)
 {
   int opt_rcache = omx__globals.regcache;
   /* regcache does not work with static libc */
@@ -138,7 +138,7 @@ omx_regcache_init(void)
   omx__verbose_printf(NULL, "regcache is %s\n", omx__globals.regcache ? "enabled" : "disabled");
 }
 
-void (*__malloc_initialize_hook)() = omx_regcache_init;
+void (*__malloc_initialize_hook)() = omx__regcache_init;
 
 int omx__regcache_works()
 {

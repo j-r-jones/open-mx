@@ -561,6 +561,9 @@ omx__put_region(struct omx_endpoint *ep,
 		const void * reserver);
 
 extern void
+omx__regcache_init(void);
+
+extern void
 omx__regcache_clean(void *ptr, size_t size);
 
 /* board management */
