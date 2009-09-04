@@ -138,17 +138,25 @@ if test x$build_driver = xyes ; then
 	LINUX_SRC="/lib/modules/"`uname -r`"/source"
 	LINUX_BUILD="/lib/modules/"`uname -r`"/build"
     else
+	AC_MSG_NOTICE([overriding kernel release uname -r with $FORCE_LINUX_RELEASE])
 	LINUX_SRC="/lib/modules/$FORCE_LINUX_RELEASE/source"
 	LINUX_BUILD="/lib/modules/$FORCE_LINUX_RELEASE/build"
+	if ! test -d "/lib/modules/$FORCE_LINUX_RELEASE/" ; then
+	    AC_MSG_WARN([kernel module directory /lib/modules/$FORCE_LINUX_RELEASE/ does not exist])
+	fi
     fi
     # If the user changes the source, use it as build by default
     # If it changes the build, do not use it as the source by default
     AC_ARG_WITH(linux,
-	[AS_HELP_STRING([--with-linux=<dir>], [location of the Linux kernel source])],
-	LINUX_SRC="$withval"; LINUX_BUILD="$withval"; LINUX_GCC_VERSION="")
+	[AS_HELP_STRING([--with-linux=<dir>],
+	[location of the Linux kernel source])],
+	[LINUX_SRC="$withval"; LINUX_BUILD="$withval"; LINUX_GCC_VERSION="";
+	 AC_MSG_NOTICE([overrifing kernel source and build dirs with $withval])])
     AC_ARG_WITH(linux-build,
-	[AS_HELP_STRING([--with-linux-build=<dir>], [location of the Linux kernel build tree])],
-	LINUX_BUILD="$withval"; LINUX_GCC_VERSION="")
+	[AS_HELP_STRING([--with-linux-build=<dir>],
+	 [location of the Linux kernel build tree])],
+	[LINUX_BUILD="$withval"; LINUX_GCC_VERSION="";
+	 AC_MSG_NOTICE([overrifing kernel build dir with $withval])])
     AC_SUBST(LINUX_SRC)
     AC_SUBST(LINUX_BUILD)
 
@@ -175,11 +183,12 @@ if test x$build_driver = xyes ; then
     else if test -f ${LINUX_BUILD}/include/linux/kernel.h ; then
       LINUX_HDR=$LINUX_BUILD
     fi fi
-    if test -z ${LINUX_HDR} ; then
-      AC_MSG_ERROR(not found)
+    if test -z "${LINUX_HDR}" ; then
+      AC_MSG_RESULT([not found])
+    else
+      AC_MSG_RESULT([found in ${LINUX_HDR}])
+      AC_SUBST(LINUX_HDR)
     fi
-    AC_MSG_RESULT(found in ${LINUX_HDR})
-    AC_SUBST(LINUX_HDR)
 
     # Find where the autoconf header is (to avoid grepping at both places).
     # The one in the build dir is preferred since this is where the configured
@@ -191,18 +200,28 @@ if test x$build_driver = xyes ; then
     else if test -f ${LINUX_SRC}/include/linux/autoconf.h ; then
       LINUX_AUTOCONF_DIR=${LINUX_SRC}
     fi fi
-    if test -z ${LINUX_AUTOCONF_DIR} ; then
-      AC_MSG_ERROR(not found)
+    if test -z "${LINUX_AUTOCONF_DIR}" ; then
+      AC_MSG_RESULT([not found])
+    else
+      AC_MSG_RESULT([found in ${LINUX_AUTOCONF_DIR}])
     fi
-    LINUX_AUTOCONF_H=${LINUX_AUTOCONF_DIR}/include/linux/autoconf.h
-    AC_MSG_RESULT(found in ${LINUX_AUTOCONF_DIR})
 
     # Find where the kbuild Makefile is
     AC_MSG_CHECKING(kernel Makefile)
-    if ! test -f ${LINUX_BUILD}/Makefile ; then
-      AC_MSG_ERROR(not found in ${LINUX_BUILD})
+    if test -f ${LINUX_BUILD}/Makefile ; then
+      AC_MSG_RESULT([found in ${LINUX_BUILD}])
+    else
+      AC_MSG_RESULT([not found])
     fi
-    AC_MSG_RESULT(found in ${LINUX_BUILD})
+
+    # Error out if we fail to find everything
+    if test -z "${LINUX_HDR}" -o -z "${LINUX_AUTOCONF_DIR}" -o ! -f ${LINUX_BUILD}/Makefile  ; then
+      AC_MSG_NOTICE([looked for kernel headers and build system using:])
+      AC_MSG_NOTICE([  kernel headers in ${LINUX_SRC}])
+      AC_MSG_NOTICE([  kernel build in ${LINUX_BUILD}])
+      AC_MSG_NOTICE([might need --with-linux-release, --with-linux, or --with-linux-build])
+      AC_MSG_ERROR([could not find kernel headers and build system])
+    fi
 
     # Check the kernel release
     REAL_LINUX_RELEASE=$(make kernelrelease -C ${LINUX_BUILD} | grep ^2.6.)
@@ -734,7 +753,7 @@ if test x$build_driver = xyes ; then
     AC_MSG_NOTICE([checking kernel headers ...])
     ${orig_builddir}/${srcdir}/driver/linux/check_kernel_headers.sh --force omx_checks.h "$LINUX_BUILD" "$LINUX_HDR" "$LINUX_RELEASE"
 
-    if test ! "$srcdir" -ef "." ; then
+    if ( cd ${orig_builddir} && test ! "$srcdir" -ef . ) then
 	# Symlink kernel sources into the build tree if needed
 	AC_MSG_NOTICE([creating symlinks to kernel sources in driver/linux/ ...])
 	for file in ${orig_builddir}/${srcdir}/driver/linux/*.[[ch]] ; do

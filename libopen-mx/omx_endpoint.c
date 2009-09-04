@@ -50,8 +50,9 @@ omx__init_endpoint_list(void)
 static INLINE void
 omx__add_endpoint_to_list(struct omx_endpoint *endpoint)
 {
-  if (!omx__globals.connect_pollall)
-    omx__verbose_printf(NULL, "Multirail might need OMX_CONNECT_POLLALL=1 to work around mx_connect deadlocks.\n");
+  if (!list_empty(&omx_endpoints_list)
+      && !omx__globals.connect_pollall)
+    omx__verbose_printf(NULL, "Multirail might need OMX_CONNECT_POLLALL=1 to work around connection deadlocks.\n");
 
   omx__lock(&omx_endpoints_list_lock);
   list_add_tail(&endpoint->omx_endpoints_list_elt, &omx_endpoints_list);
@@ -731,7 +732,7 @@ omx__destroy_unlinked_request_on_close(struct omx_endpoint *ep, union omx_reques
   case OMX_REQUEST_TYPE_SEND_LARGE:
     if (!(resources & OMX_REQUEST_RESOURCE_LARGE_REGION)
 	&& (state & OMX_REQUEST_STATE_NEED_REPLY))
-      omx__put_region(ep, req->recv.specific.large.local_region, NULL);
+      omx__put_region(ep, req->send.specific.large.region, req);
     omx_free_segments(&req->send.segs);
     break;
 

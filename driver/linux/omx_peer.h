@@ -26,6 +26,10 @@ struct omx_pkt_head;
 struct omx_peer;
 struct omx_cmd_peer_table_state;
 
+extern struct mutex omx_ifaces_peers_mutex; /* mutex protecting peers and ifaces */
+static inline void omx_ifaces_peers_lock(void) { mutex_lock(&omx_ifaces_peers_mutex); }
+static inline void omx_ifaces_peers_unlock(void) { mutex_unlock(&omx_ifaces_peers_mutex); }
+
 extern int omx_peers_init(void);
 extern void omx_peers_exit(void);
 extern void omx_peer_table_get_state(struct omx_cmd_peer_table_state *state);
@@ -35,10 +39,10 @@ extern void omx_peers_clear_names(void);
 extern int omx_peers_notify_iface_attach(struct omx_iface * iface);
 extern void omx_peers_notify_iface_detach(struct omx_iface * iface);
 extern int omx_peer_add(uint64_t board_addr, const char *hostname);
-extern void omx_peer_set_reverse_index_locked(struct omx_peer *peer, uint16_t reverse_index);
+extern void omx_peer_set_reverse_index(struct omx_peer *peer, struct omx_iface *iface, uint16_t reverse_index);
 extern struct omx_endpoint * omx_local_peer_acquire_endpoint(uint16_t peer_index, uint8_t endpoint_index);
-extern int omx_set_target_peer(struct omx_pkt_head *ph, uint16_t index);
-extern int omx_check_recv_peer_index(uint16_t peer_index);
+extern int omx_set_target_peer(struct omx_pkt_head *ph, struct omx_iface *iface, uint16_t index);
+extern int omx_check_recv_peer_index(uint16_t peer_index, uint64_t src_addr);
 
 extern int omx_peer_lookup_by_index(uint32_t index, uint64_t *board_addr, char *hostname);
 extern int omx_peer_lookup_by_addr(uint64_t board_addr, char *hostname, uint32_t *index);
@@ -54,7 +58,6 @@ struct omx_peer {
 	uint64_t board_addr;
 	char *hostname;
 	uint32_t index; /* this peer index in our table */
-	uint32_t reverse_index; /* our index in this peer table, or OMX_UNKNOWN_REVERSE_PEER_INDEX */
 	struct list_head addr_hash_elt;
 	struct omx_iface * local_iface;
 

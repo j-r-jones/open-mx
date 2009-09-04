@@ -539,7 +539,7 @@ omx_pull_handle_pkt_hdr_fill(const struct omx_endpoint * endpoint,
 	memcpy(eh->h_source, ifp->dev_addr, sizeof (eh->h_source));
 
 	/* set destination peer */
-	ret = omx_set_target_peer(ph, cmd->peer_index);
+	ret = omx_set_target_peer(ph, iface, cmd->peer_index);
 	if (ret < 0) {
 		printk(KERN_INFO "Open-MX: Failed to fill target peer in pull request header\n");
 		goto out;
@@ -1150,10 +1150,11 @@ omx_recv_pull_request(struct omx_iface * iface,
 	omx_counter_inc(iface, RECV_PULL_REQ);
 
         /* check the peer index */
-	err = omx_check_recv_peer_index(peer_index);
+	err = omx_check_recv_peer_index(peer_index,
+					omx_board_addr_from_ethhdr_src(pull_eh));
 	if (unlikely(err < 0)) {
 		omx_counter_inc(iface, DROP_BAD_PEER_INDEX);
-		omx_drop_dprintk(pull_eh, "PULL packet with unknown peer index %d",
+		omx_drop_dprintk(pull_eh, "PULL packet with wrong peer index %d",
 				 (unsigned) peer_index);
 		goto out;
 	}
@@ -1897,7 +1898,8 @@ omx_recv_nack_mcp(struct omx_iface * iface,
 			 omx_strnacktype(nack_type));
 
 	/* check the peer index */
-	err = omx_check_recv_peer_index(peer_index);
+	err = omx_check_recv_peer_index(peer_index,
+					omx_board_addr_from_ethhdr_src(eh));
 	if (unlikely(err < 0)) {
 		/* FIXME: impossible? in non MX-wire compatible only? */
 		struct omx_peer *peer;

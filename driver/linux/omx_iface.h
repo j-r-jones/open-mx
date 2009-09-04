@@ -59,6 +59,7 @@ struct omx_iface {
 
 	struct net_device * eth_ifp;
 	struct omx_peer peer;
+	uint32_t *reverse_peer_indexes; /* our index in the remote peer tables, or OMX_UNKNOWN_REVERSE_PEER_INDEX (omx_peer_max values) */
 
 	struct mutex endpoints_mutex;
 	enum omx_iface_status status;
@@ -72,6 +73,8 @@ struct omx_iface {
 
 extern int omx_net_init(void);
 extern void omx_net_exit(void);
+
+extern struct omx_iface ** omx_ifaces;
 
 extern void omx_iface_release(struct omx_iface * iface);
 
@@ -87,8 +90,6 @@ omx_iface_reacquire(struct omx_iface * iface)
 	kref_get(&iface->refcount);
 }
 
-extern void omx_ifaces_lock(void);
-extern void omx_ifaces_unlock(void);
 extern struct omx_iface * omx_iface_find_by_index_lock(int board_index);
 
 extern void omx_for_each_iface(int (*handler)(struct omx_iface *iface, void *data), void *data);

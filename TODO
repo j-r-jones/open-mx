@@ -1,3 +1,11 @@
+* try to detect/prevent when OpenMPI is forcing MX_RCACHE to 2 while it should not for Open-MX?
+  + clarify the FAQ about RCACHE being forced even if unsafe
+  + --mca mpi_leave_pinned 0 may help in the meantime
+* implement mx__regclean_clean for real so that ompi may use RCACHE=2
+  + the regcache branch should make it point to the omx_regcache_clean routine
+* detect when 2 endpoints are being open by OpenMPI without actually using them
+  (remove a debug message?)
+
 * constify the open-mx interface ?
 
 * add driver-specific ethtool configs
@@ -93,7 +101,6 @@
   + drop the status_lock
 
 * drop the iface endpoint array mutex and use the big ifaces mutex?
-* drop the peer mutex as well since we have rcu everywhere?
 
 * cleanup the idr+BHlock for handles
   + sleep if not enough slot available

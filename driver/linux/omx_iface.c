@@ -43,25 +43,9 @@ static void __omx_iface_last_release(struct kref *kref);
 /*
  * Array, number and lock for the list of ifaces
  */
-static struct omx_iface ** omx_ifaces = NULL; /* must be NULL during init so that module param are delayed */
+struct omx_iface ** omx_ifaces = NULL; /* must be NULL during init so that module param are delayed */
 static unsigned omx_iface_nr = 0;
-static struct mutex omx_ifaces_mutex;
 struct omx_iface * omx_shared_fake_iface = NULL; /* only used for shared communication counters */
-
-/*
- * Lock/Unlock the ifaces array
- */
-void
-omx_ifaces_lock(void)
-{
-	mutex_lock(&omx_ifaces_mutex);
-}
-
-void
-omx_ifaces_unlock(void)
-{
-	mutex_unlock(&omx_ifaces_mutex);
-}
 
 /*
  * Return an iface and keep the ifaces lock on success
@@ -71,16 +55,16 @@ omx_iface_find_by_index_lock(int board_index)
 {
 	struct omx_iface * iface;
 
-	mutex_lock(&omx_ifaces_mutex);
+	omx_ifaces_peers_lock();
 
 	if (board_index >= omx_iface_max) {
-		mutex_unlock(&omx_ifaces_mutex);
+		omx_ifaces_peers_unlock();
 		return NULL;
 	}
 
 	iface = omx_ifaces[board_index];
 	if (!iface)
-		mutex_unlock(&omx_ifaces_mutex);
+		omx_ifaces_peers_unlock();
 
 	return iface;
 }
@@ -455,6 +439,13 @@ omx_iface_attach(struct net_device * ifp)
 		goto out;
 	}
 
+	iface->reverse_peer_indexes = kmalloc(omx_peer_max * sizeof(*iface->reverse_peer_indexes), GFP_KERNEL);
+	if (!iface->reverse_peer_indexes) {
+		printk(KERN_ERR "Open-MX: Failed to allocate interface reverse peer index array\n");
+		ret = -ENOMEM;
+		goto out_with_iface;
+	}
+
 	printk(KERN_INFO "Open-MX: Attaching %sEthernet interface '%s' as #%i, MTU=%d\n",
 	       (ifp->type == ARPHRD_ETHER ? "" : "non-"), ifp->name, i, mtu);
 
@@ -484,7 +475,7 @@ omx_iface_attach(struct net_device * ifp)
 	if (!hostname) {
 		printk(KERN_ERR "Open-MX:   Failed to allocate interface hostname\n");
 		ret = -ENOMEM;
-		goto out_with_iface;
+		goto out_with_iface_reverse_indexes;
 	}
 
 	if (ifp->type == ARPHRD_LOOPBACK)
@@ -494,8 +485,8 @@ omx_iface_attach(struct net_device * ifp)
 	hostname[OMX_HOSTNAMELEN_MAX-1] = '\0';
 	iface->peer.hostname = hostname;
 	iface->peer.index = OMX_UNKNOWN_REVERSE_PEER_INDEX;
-	iface->peer.reverse_index = OMX_UNKNOWN_REVERSE_PEER_INDEX;
 	iface->peer.board_addr = omx_board_addr_from_netdevice(ifp);
+	/* reverse_peer_indexes will be initialized in omx_peers_notify_iface_attach */
 
 	iface->eth_ifp = ifp;
 	iface->endpoint_nr = 0;
@@ -527,6 +518,8 @@ omx_iface_attach(struct net_device * ifp)
 	kfree(iface->endpoints);
  out_with_iface_hostname:
 	kfree(hostname);
+ out_with_iface_reverse_indexes:
+	kfree(iface->reverse_peer_indexes);
  out_with_iface:
 	kfree(iface);
  out:
@@ -546,6 +539,7 @@ __omx_iface_last_release(struct kref *kref)
 	omx_iface_raw_exit(&iface->raw);
 	kfree(iface->endpoints);
 	kfree(iface->peer.hostname);
+	kfree(iface->reverse_peer_indexes);
 	kfree(iface);
 
 	/* release the interface now, it will wakeup the unregister notifier waiting in rtnl_unlock() */
@@ -710,7 +704,7 @@ omx_ifaces_store_one(const char *buf)
 			force = 1;
 		}
 
-		mutex_lock(&omx_ifaces_mutex);
+		omx_ifaces_peers_lock();
 		for(i=0; i<omx_iface_max; i++) {
 			struct omx_iface * iface = omx_ifaces[i];
 			struct net_device * ifp;
@@ -736,7 +730,7 @@ omx_ifaces_store_one(const char *buf)
 
 			break;
 		}
-		mutex_unlock(&omx_ifaces_mutex);
+		omx_ifaces_peers_unlock();
 
 		if (ret == -EINVAL)
 			printk(KERN_ERR "Open-MX: Cannot find any attached interface '%s' to detach\n",
@@ -752,9 +746,9 @@ omx_ifaces_store_one(const char *buf)
 
 		ifp = omx_dev_get_by_name(ifname);
 		if (ifp) {
-			mutex_lock(&omx_ifaces_mutex);
+			omx_ifaces_peers_lock();
 			ret = omx_iface_attach(ifp);
-			mutex_unlock(&omx_ifaces_mutex);
+			omx_ifaces_peers_unlock();
 			if (ret < 0)
 				dev_put(ifp);
 		} else {
@@ -1010,7 +1004,7 @@ omx_netdevice_notifier_cb(struct notifier_block *unused,
 	struct net_device *ifp = (struct net_device *) ptr;
 	struct omx_iface * iface;
 
-	mutex_lock(&omx_ifaces_mutex);
+	omx_ifaces_peers_lock();
 	iface = omx_iface_find_by_ifp(ifp);
 	if (!iface)
 		goto out_with_lock;
@@ -1063,7 +1057,7 @@ omx_netdevice_notifier_cb(struct notifier_block *unused,
 	}
 
  out_with_lock:
-	mutex_unlock(&omx_ifaces_mutex);
+	omx_ifaces_peers_unlock();
 	return NOTIFY_DONE;
 }
 
@@ -1129,8 +1123,6 @@ int
 omx_net_init(void)
 {
 	int ret = 0;
-
-	mutex_init(&omx_ifaces_mutex);
 
 	if (omx_copybench)
 		omx_net_copy_bench();
@@ -1228,7 +1220,7 @@ omx_net_exit(void)
 	 */
 
 	/* prevent omx_netdevice_notifier from removing an iface now */
-	mutex_lock(&omx_ifaces_mutex);
+	omx_ifaces_peers_lock();
 
 	for (i=0; i<omx_iface_max; i++) {
 		struct omx_iface * iface = omx_ifaces[i];
@@ -1249,7 +1241,7 @@ omx_net_exit(void)
 	/* release the lock to let omx_netdevice_notifier finish
 	 * in case it has been invoked during our loop
 	 */
-	mutex_unlock(&omx_ifaces_mutex);
+	omx_ifaces_peers_unlock();
 
 	/* unregister the notifier then */
 	unregister_netdevice_notifier(&omx_netdevice_notifier);

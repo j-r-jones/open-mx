@@ -51,6 +51,7 @@ static struct omx_cmd_peer_table_state omx_peer_table_state = {
  /*
   * Big mutex protecting concurrent modifications of the peer table:
   *  - per-index array of peers
+  *  - per-index array of ifaces
   *  - hashed lists
   *  - next_nr
   *  - all peer hostnames (never accessed by the bottom half)
@@ -59,12 +60,62 @@ static struct omx_cmd_peer_table_state omx_peer_table_state = {
   * The bottom only access the peer (not its hostname) to get peer indexes,
   * so we use rcu there.
   */
-static struct mutex omx_peers_mutex;
+struct mutex omx_ifaces_peers_mutex;
 
 /* magic number used in host_query/reply */
 static int omx_host_query_magic = 0x13052008;
 
 #define OMX_PEER_ADDR_HASH_NR 256
+
+/***********************
+ * Reverse Peer Helpers
+ */
+
+/*
+ * For a given new peer with index index, set its reverse peer index
+ * for each local iface.
+ * If the peer is local, the reverse index is the peer index.
+ * If not, it's unknown for now.
+ *
+ * Called with peers mutex hold
+ */
+static inline void
+omx_init_peer_reverse_indexes(uint16_t index, int local)
+{
+	uint32_t reverse = local ? index : OMX_UNKNOWN_REVERSE_PEER_INDEX;
+	int i;
+	for(i=0; i<omx_iface_max; i++)
+		if (omx_ifaces[i])
+			omx_ifaces[i]->reverse_peer_indexes[index] = reverse;
+}
+
+/*
+ * For a given new iface, set its reverse peer index array
+ * and set other ifaces peer index to it.
+ * All indexes are unknown, except those of local ifaces.
+ *
+ * Called with peers mutex hold
+ */
+static inline void
+omx_init_iface_reverse_indexes(struct omx_iface *iface)
+{
+	int i;
+
+	/* set this iface reverse index array */
+	for(i=0; i<omx_peer_max; i++)
+		iface->reverse_peer_indexes[i] = OMX_UNKNOWN_REVERSE_PEER_INDEX;
+	for(i=0; i<omx_iface_max; i++)
+		if (omx_ifaces[i]) {
+			uint16_t index = omx_ifaces[i]->peer.index;
+			iface->reverse_peer_indexes[index] = index;
+		}
+
+	/* set other ifaces reverse indexes to this iface */
+	omx_init_peer_reverse_indexes(iface->peer.index, 1);
+
+	/* set this iface iface to itself (in case it wasn't in the iface array yet) */
+	iface->reverse_peer_indexes[iface->peer.index] = iface->peer.index;
+}
 
 /************************
  * Peer Table Management
@@ -96,7 +147,7 @@ omx_peers_clear(int local)
 
 	dprintk(PEER, "clearing all peers\n");
 
-	mutex_lock(&omx_peers_mutex);
+	omx_ifaces_peers_lock();
 
 	for(i=0; i<omx_peer_max; i++) {
 		struct omx_peer * peer = omx_peer_array[i];
@@ -160,7 +211,7 @@ omx_peers_clear(int local)
 		}
 	}
 
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 }
 
 int
@@ -181,7 +232,7 @@ omx_peer_add(uint64_t board_addr, const char *hostname)
 			goto out;
 	}
 
-	mutex_lock(&omx_peers_mutex);
+	omx_ifaces_peers_lock();
 
 	/* does the peer exist ? */
 	hash = omx_peer_addr_hash(board_addr);
@@ -284,11 +335,11 @@ omx_peer_add(uint64_t board_addr, const char *hostname)
 		if (iface) {
 			dprintk(PEER, "adding peer %d with addr %012llx (local peer)\n",
 				peer->index, (unsigned long long) board_addr);
-			peer->reverse_index = peer->index;
+			omx_init_peer_reverse_indexes(peer->index, 1);
 		} else {
 			dprintk(PEER, "adding peer %d with addr %012llx\n",
 				peer->index, (unsigned long long) board_addr);
-			peer->reverse_index = OMX_UNKNOWN_REVERSE_PEER_INDEX;
+			omx_init_peer_reverse_indexes(peer->index, 0);
 		}
 
 		list_add_tail_rcu(&peer->addr_hash_elt, &omx_peer_addr_hash_array[hash]);
@@ -296,12 +347,12 @@ omx_peer_add(uint64_t board_addr, const char *hostname)
 		omx_peer_next_nr++;
 	}
 
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 
 	return 0;
 
  out_with_mutex:
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 	kfree(new_hostname);
  out:
 	return err;
@@ -311,6 +362,7 @@ omx_peer_add(uint64_t board_addr, const char *hostname)
  * Local Iface Management
  */
 
+/* Called with peers mutex hold */
 int
 omx_peers_notify_iface_attach(struct omx_iface * iface)
 {
@@ -323,8 +375,6 @@ omx_peers_notify_iface_attach(struct omx_iface * iface)
 	ifacepeer = &iface->peer;
 	board_addr = ifacepeer->board_addr;
 	hash = omx_peer_addr_hash(board_addr);
-
-	mutex_lock(&omx_peers_mutex);
 
 	list_for_each_entry(oldpeer, &omx_peer_addr_hash_array[hash], addr_hash_elt) {
 		if (oldpeer->board_addr == board_addr) {
@@ -346,7 +396,7 @@ omx_peers_notify_iface_attach(struct omx_iface * iface)
 
 			/* board_addr already set */
 			ifacepeer->index = index;
-			ifacepeer->reverse_index = index;
+			omx_init_iface_reverse_indexes(iface);
 			ifacepeer->local_iface = iface;
 
 			/* replace the iface hostname with the one from the peer table if it exists */
@@ -366,7 +416,6 @@ omx_peers_notify_iface_attach(struct omx_iface * iface)
 			list_replace_rcu(&oldpeer->addr_hash_elt, &ifacepeer->addr_hash_elt);
 			call_rcu(&oldpeer->rcu_head, __omx_peer_rcu_free_callback);
 
-			mutex_unlock(&omx_peers_mutex);
 			return 0;
 		}
 	}
@@ -380,7 +429,7 @@ omx_peers_notify_iface_attach(struct omx_iface * iface)
 		       iface->eth_ifp->name, ifacepeer->hostname, (unsigned long long) board_addr);
 		omx_peer_table_full = 1;
 		omx_peer_table_state.status |= OMX_PEER_TABLE_STATUS_FULL;
-		goto out_with_mutex;
+		goto out;
 	}
 
 	/* this is a new peer, allocate an index and hash it */
@@ -392,7 +441,7 @@ omx_peers_notify_iface_attach(struct omx_iface * iface)
 	/* board_addr already set */
 	ifacepeer->local_iface = iface;
 	ifacepeer->index = index;
-	ifacepeer->reverse_index = index;
+	omx_init_iface_reverse_indexes(iface);
 
 	dprintk(PEER, "attaching local iface %s (%s) with address %012llx as new peer #%d\n",
 		iface->eth_ifp->name, ifacepeer->hostname, (unsigned long long) board_addr, index);
@@ -404,22 +453,19 @@ omx_peers_notify_iface_attach(struct omx_iface * iface)
 
 	rcu_assign_pointer(omx_peer_array[index], ifacepeer);
 
-	mutex_unlock(&omx_peers_mutex);
 	return 0;
 
- out_with_mutex:
-	mutex_unlock(&omx_peers_mutex);
+ out:
 	return err;
 }
 
+/* Called with peers mutex hold */
 void
 omx_peers_notify_iface_detach(struct omx_iface * iface)
 {
 	struct omx_peer * peer;
 
 	peer = &iface->peer;
-
-	mutex_lock(&omx_peers_mutex);
 
 	if (peer->index != OMX_UNKNOWN_REVERSE_PEER_INDEX) {
 		uint32_t index = peer->index;
@@ -440,8 +486,6 @@ omx_peers_notify_iface_detach(struct omx_iface * iface)
 		/* release the iface reference now it is not linked in the peer table anymore */
 		omx_iface_release(iface);
 	}
-
-	mutex_unlock(&omx_peers_mutex);
 }
 
 /*
@@ -485,22 +529,26 @@ omx_local_peer_acquire_endpoint(uint16_t peer_index, uint8_t endpoint_index)
 
 /* Must be called from mutex or RCU-read locked context */
 void
-omx_peer_set_reverse_index_locked(struct omx_peer *peer, uint16_t reverse_index)
+omx_peer_set_reverse_index(struct omx_peer *peer, struct omx_iface *iface, uint16_t reverse_index)
 {
-	if (reverse_index != peer->reverse_index) {
-		if (peer->reverse_index != OMX_UNKNOWN_REVERSE_PEER_INDEX)
-			dprintk(PEER, "changing remote peer #%d reverse index from %d to %d\n",
-				peer->index, peer->reverse_index, reverse_index);
+	if (reverse_index != iface->reverse_peer_indexes[peer->index]) {
+		if (iface->reverse_peer_indexes[peer->index] != OMX_UNKNOWN_REVERSE_PEER_INDEX)
+			dprintk(PEER, "changing remote peer #%d reverse index on iface %d (%s) from %d to %d\n",
+				peer->index,
+				iface->index, iface->eth_ifp->name,
+				iface->reverse_peer_indexes[peer->index], reverse_index);
 		else
-			dprintk(PEER, "setting remote peer #%d reverse index to %d\n",
-				peer->index, reverse_index);
+			dprintk(PEER, "setting remote peer #%d reverse index on iface %d (%s) to %d\n",
+				peer->index,
+				iface->index, iface->eth_ifp->name,
+				reverse_index);
 
-		peer->reverse_index = reverse_index;
+		iface->reverse_peer_indexes[peer->index] = reverse_index;
 	}
 }
 
 int
-omx_set_target_peer(struct omx_pkt_head *ph, uint16_t index)
+omx_set_target_peer(struct omx_pkt_head *ph, struct omx_iface *iface, uint16_t index)
 {
 	struct omx_peer *peer;
 	int err = -EINVAL;
@@ -515,7 +563,7 @@ omx_set_target_peer(struct omx_pkt_head *ph, uint16_t index)
 		goto out_with_lock;
 
 	omx_board_addr_to_ethhdr_dst(&ph->eth, peer->board_addr);
-	OMX_PKT_FIELD_FROM(ph->dst_src_peer_index, peer->reverse_index);
+	OMX_PKT_FIELD_FROM(ph->dst_src_peer_index, iface->reverse_peer_indexes[index]);
 
 	rcu_read_unlock();
 	return 0;
@@ -527,14 +575,38 @@ omx_set_target_peer(struct omx_pkt_head *ph, uint16_t index)
 }
 
 int
-omx_check_recv_peer_index(uint16_t index)
+omx_check_recv_peer_index(uint16_t index, uint64_t addr)
 {
-	/* the table is never reduced, no need to lock */
-	if (index >= omx_peer_max
-	    || !omx_peer_array[index])
-		return -EINVAL;
+	struct omx_peer *peer;
+	int err = -EINVAL;
 
+	if (index >= omx_peer_max)
+		goto out;
+
+	rcu_read_lock();
+
+	peer = rcu_dereference(omx_peer_array[index]);
+	if (!peer)
+		goto out_with_lock;
+
+#ifdef OMX_DRIVER_DEBUG
+	/* peer index pointing to an invalid peer should not occur
+	 * unless the driver is buggy, so only check when debug is enabled
+	 */
+	if (addr != peer->board_addr) {
+		dprintk(PEER, "found addr %016llx for incoming packet peer index #%d when source addr is %016llx\n",
+			(unsigned long long) peer->board_addr, (unsigned) index, (unsigned long long) addr);
+		goto out_with_lock;
+	}
+#endif /* OMX_DRIVER_DEBUG */
+
+	rcu_read_unlock();
 	return 0;
+
+ out_with_lock:
+	rcu_read_unlock();
+ out:
+	return err;
 }
 
 /**************
@@ -560,7 +632,7 @@ omx_peer_lookup_by_index(uint32_t index,
 	if (index >= omx_peer_max)
 		goto out;
 
-	mutex_lock(&omx_peers_mutex);
+	omx_ifaces_peers_lock();
 
 	peer = omx_peer_array[index];
 	if (!peer)
@@ -576,11 +648,11 @@ omx_peer_lookup_by_index(uint32_t index,
 			hostname[0] = '\0';
 	}
 
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 	return 0;
 
  out_with_lock:
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
  out:
 	return err;
 }
@@ -623,7 +695,7 @@ omx_peer_lookup_by_addr(uint64_t board_addr,
 
 	might_sleep();
 
-	mutex_lock(&omx_peers_mutex);
+	omx_ifaces_peers_lock();
 
 	peer = omx_peer_lookup_by_addr_locked(board_addr);
 	if (peer) {
@@ -639,7 +711,7 @@ omx_peer_lookup_by_addr(uint64_t board_addr,
 		err = -EINVAL;
 	}
 
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 
 	return err;
 }
@@ -659,7 +731,7 @@ omx_peer_lookup_by_hostname(const char *hostname,
 
 	might_sleep();
 
-	mutex_lock(&omx_peers_mutex);
+	omx_ifaces_peers_lock();
 
 	for(i=0; i<omx_peer_max; i++) {
 		struct omx_peer *peer = omx_peer_array[i];
@@ -671,12 +743,12 @@ omx_peer_lookup_by_hostname(const char *hostname,
 				*index = i;
 			if (board_addr)
 				*board_addr = peer->board_addr;
-			mutex_unlock(&omx_peers_mutex);
+			omx_ifaces_peers_unlock();
 			return 0;
 		}
 	}
 
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 
 	return -EINVAL;
 }
@@ -762,7 +834,7 @@ omx_process_peers_to_host_query(void)
 	struct omx_peer *peer, *npeer;
 	u64 current_jiffies;
 
-	mutex_lock(&omx_peers_mutex);
+	omx_ifaces_peers_lock();
 
 	current_jiffies = get_jiffies_64();
 	list_for_each_entry_safe(peer, npeer, &omx_host_query_peer_list, host_query_list_elt) {
@@ -775,7 +847,7 @@ omx_process_peers_to_host_query(void)
 		list_move_tail(&peer->host_query_list_elt, &omx_host_query_peer_list);
 	}
 
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 }
 
 static struct sk_buff_head omx_host_query_list;
@@ -869,7 +941,7 @@ omx_process_host_queries_and_replies(void)
 		src_addr = omx_board_addr_from_ethhdr_src(eh);
 		reply_n = (struct omx_pkt_host_reply *) (ph + 1);
 
-		mutex_lock(&omx_peers_mutex);
+		omx_ifaces_peers_lock();
 
 		peer = omx_peer_lookup_by_addr_locked(src_addr);
 		if (peer) {
@@ -898,7 +970,7 @@ omx_process_host_queries_and_replies(void)
 
 			/* update the peer reverse index */
 			reverse_peer_index = OMX_FROM_PKT_FIELD(reply_n->src_dst_peer_index);
-			omx_peer_set_reverse_index_locked(peer, reverse_peer_index);
+			omx_peer_set_reverse_index(peer, iface, reverse_peer_index);
 
 		} else {
 			omx_counter_inc(iface, DROP_BAD_PEER_ADDR);
@@ -906,7 +978,7 @@ omx_process_host_queries_and_replies(void)
 		}
 
 	out:
-		mutex_unlock(&omx_peers_mutex);
+		omx_ifaces_peers_unlock();
 
  		kfree_skb(in_skb);
 	}
@@ -938,20 +1010,20 @@ omx_process_host_queries_and_replies(void)
 		hostname = iface->peer.hostname;
 		hostnamelen = strlen(hostname) + 1;
 
-		mutex_lock(&omx_peers_mutex);
+		omx_ifaces_peers_lock();
 
 		peer = omx_peer_lookup_by_addr_locked(src_addr);
 		if (!peer) {
-			mutex_unlock(&omx_peers_mutex);
+			omx_ifaces_peers_unlock();
 			omx_counter_inc(iface, DROP_BAD_PEER_ADDR);
 			omx_drop_dprintk(in_eh, "HOST QUERY packet from unknown peer\n");
 			goto failed;
 		}
 
 		/* store our peer_index in the remote table */
-		omx_peer_set_reverse_index_locked(peer, reverse_peer_index);
+		omx_peer_set_reverse_index(peer, iface, reverse_peer_index);
 
-		mutex_unlock(&omx_peers_mutex);
+		omx_ifaces_peers_unlock();
 
 		/* prepare the reply */
 		out_skb = omx_new_skb(ETH_ZLEN + hostnamelen);
@@ -969,7 +1041,7 @@ omx_process_host_queries_and_replies(void)
 
 		OMX_PKT_FIELD_FROM(reply_n->ptype, OMX_PKT_TYPE_HOST_REPLY);
 		OMX_PKT_FIELD_FROM(reply_n->length, hostnamelen);
-		OMX_PKT_FIELD_FROM(reply_n->src_dst_peer_index, iface->peer.index);
+		OMX_PKT_FIELD_FROM(reply_n->src_dst_peer_index, peer->index);
 		reply_n->magic = query_n->magic;
 		memcpy(out_data, hostname, hostnamelen);
 
@@ -995,7 +1067,7 @@ omx_peers_clear_names(void)
 {
 	int i;
 
-	mutex_lock(&omx_peers_mutex);
+	omx_ifaces_peers_lock();
 	for(i=0; i<omx_peer_max; i++) {
 		struct omx_peer *peer;
 		char *hostname;
@@ -1016,7 +1088,7 @@ omx_peers_clear_names(void)
 	/* increase the magic to avoid obsolete host_reply packets */
 	omx_host_query_magic++;
 
-	mutex_unlock(&omx_peers_mutex);
+	omx_ifaces_peers_unlock();
 }
 
 /***************************
@@ -1058,7 +1130,7 @@ omx_peers_init(void)
 	skb_queue_head_init(&omx_host_query_list);
 	skb_queue_head_init(&omx_host_reply_list);
 
-	mutex_init(&omx_peers_mutex);
+	mutex_init(&omx_ifaces_peers_mutex);
 
 	omx_peer_next_nr = 0;
 	omx_peer_table_full = 0;
