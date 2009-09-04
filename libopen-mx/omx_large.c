@@ -429,16 +429,21 @@ omx__regcache_clean(void *ptr, size_t size)
 
       /* If the invalidated segment intersects the region segment */
       if (omx__segments_intersect(inval_begin, inval_end, reg_begin, reg_end)) {
-        if (!region->use_count) {
-          omx__verbose_printf(ep, "cleaning regcache [0x%lx:0x%lx] for region #%d segment [0x%lx:0x%lx]\n",
-			      inval_begin, inval_end,
-			      (unsigned) region->id,
-			      reg_begin, reg_end);
-          list_del(&region->reg_unused_elt);
-          omx__destroy_region(ep, region);
-        }
-        // else warning try to free a region being used
-        }
+
+	if (region->use_count)
+	  /* Invalidating a region that's being used is an application bug */
+	  omx__abort(ep, "Application is freeing segment [%lx:%lx] under use by region %d segment [%lx:%lx]\n",
+		     inval_begin, inval_end,
+		     (unsigned) region->id,
+		     reg_begin, reg_end);
+
+	omx__verbose_printf(ep, "cleaning regcache [0x%lx:0x%lx] for region #%d segment [0x%lx:0x%lx]\n",
+			    inval_begin, inval_end,
+			    (unsigned) region->id,
+			    reg_begin, reg_end);
+	list_del(&region->reg_unused_elt);
+        omx__destroy_region(ep, region);
+      }
     }
     OMX__ENDPOINT_UNLOCK(ep);
   }
