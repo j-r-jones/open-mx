@@ -419,6 +419,13 @@ omx__regcache_clean(void *ptr, size_t size)
   unsigned long inval_begin = (uintptr_t) ptr;
   unsigned long inval_end = inval_begin + size;
 
+  /*
+   * don't bother trying to clean anything if regcache is disabled,
+   * omx__regcache_clean() might have been called explicitly by MPI
+   */
+  if (!omx__globals.regcache)
+    return;
+
   void omx__endpoint_regcache_clean(struct omx_endpoint *ep) {
     struct omx__large_region *region, *next;
 
@@ -447,6 +454,7 @@ omx__regcache_clean(void *ptr, size_t size)
     }
     OMX__ENDPOINT_UNLOCK(ep);
   }
+
   omx__foreach_endpoint(omx__endpoint_regcache_clean);
 }
 
