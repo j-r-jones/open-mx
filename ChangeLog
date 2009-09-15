@@ -7,6 +7,8 @@ The OpenMPI regcache release.
 * Add OMX_IGNORE_MX_ENV to disable MX environment variables.
 * Improve kernel detection and configuration messages.
 * Fix some potential aliasing problems in the library.
+* Fix the transferred length reported on the sender when discarding
+  a large message in the unexpected handler.
 
 
 Open-MX 1.1.1 (August 3rd 2009, svn r2693)
