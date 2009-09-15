@@ -9,6 +9,8 @@ The OpenMPI regcache release.
 * Fix some potential aliasing problems in the library.
 * Fix the transferred length reported on the sender when discarding
   a large message in the unexpected handler.
+* Pass the medium message data to the unexpected handler when a single
+  fragment is used, as MX does.
 
 
 Open-MX 1.1.1 (August 3rd 2009, svn r2693)
