@@ -1,6 +1,7 @@
 Open-MX 1.2.2 (.... 2010, svn/open-mx-1.2.x r....)
 ==================================================
-
+Bug fixes:
+* Fix checksumming of unexpected self messages.
 
 Caveats:
 * No background progression or retransmission is done if the application
