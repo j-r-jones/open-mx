@@ -1,3 +1,11 @@
+Open-MX 1.2.2 (.... 2010, svn/open-mx-1.2.x r....)
+==================================================
+
+
+Caveats:
+* No background progression or retransmission is done if the application
+  does not invoke an Open-MX routine explicitly.
+
 Open-MX 1.2.1 (February 8th 2010, svn r2888)
 ============================================
 
@@ -11,10 +19,6 @@ Other improvements from previous release:
   is enabled.
 * Add open-mx.spec to ease RPM package build.
 * Update the FAQ and install it in the documentation install directory.
-
-Caveats:
-* No background progression or retransmission is done if the application
-  does not invoke an Open-MX routine explicitly.
 
 Open-MX 1.2.0 (December 15th 2009, svn r2835)
 =============================================
