@@ -2,6 +2,9 @@ Open-MX 1.2.2 (.... 2010, svn/open-mx-1.2.x r....)
 ==================================================
 Bug fixes:
 * Fix checksumming of unexpected self messages.
+* Improve the ABI of some internal symbols so that Open MPI generates
+  the right unique network id.
+
 
 Caveats:
 * No background progression or retransmission is done if the application
