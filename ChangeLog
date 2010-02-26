@@ -4,6 +4,7 @@ Bug fixes:
 * Fix checksumming of unexpected self messages.
 * Improve the ABI of some internal symbols so that Open MPI generates
   the right unique network id.
+* Fix build with final Linux kernel 2.6.33.
 
 
 Caveats:

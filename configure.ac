@@ -197,7 +197,7 @@ if test x$build_driver = xyes ; then
     # Find where the headers are (to avoid grepping at both places).
     # Do not check for autoconf.h or version.h since these are in
     # both the source and the build directory.
-    AC_MSG_CHECKING(include/linux/kernel.h)
+    AC_MSG_CHECKING(kernel.h kernel header)
     LINUX_HDR=
     if test -f ${LINUX_SRC}/include/linux/kernel.h ; then
       LINUX_HDR=$LINUX_SRC
@@ -214,11 +214,11 @@ if test x$build_driver = xyes ; then
     # Find where the autoconf header is (to avoid grepping at both places).
     # The one in the build dir is preferred since this is where the configured
     # tree should be
-    AC_MSG_CHECKING(include/linux/autoconf.h)
+    AC_MSG_CHECKING(autoconf.h kernel header)
     LINUX_AUTOCONF_DIR=
-    if test -f ${LINUX_BUILD}/include/linux/autoconf.h ; then
+    if test -f ${LINUX_BUILD}/include/generated/autoconf.h -o -f ${LINUX_BUILD}/include/linux/autoconf.h ; then
       LINUX_AUTOCONF_DIR=${LINUX_BUILD}
-    else if test -f ${LINUX_SRC}/include/linux/autoconf.h ; then
+    else if test -f ${LINUX_SRC}/include/generated/autoconf.h -o -f ${LINUX_SRC}/include/linux/autoconf.h; then
       LINUX_AUTOCONF_DIR=${LINUX_SRC}
     fi fi
     if test -z "${LINUX_AUTOCONF_DIR}" ; then
