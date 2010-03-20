@@ -431,12 +431,68 @@ omx_ifnames_set_kp(const char *buf, struct kernel_param *kp)
 	return 0;
 }
 
+/*********************
+ * Netdevice notifier
+ */
+
+/*
+ * There are no restrictions on this callback since this is a raw notifier chain,
+ * it can block, allocate, ...
+ */
+static int
+omx_netdevice_notifier_cb(struct notifier_block *unused,
+			  unsigned long event, void *ptr)
+{
+	struct net_device * netdev = (struct net_device *) ptr;
+	struct omx_iface * iface = NULL;
+	int i;
+
+	mutex_lock(&omx_mutex);
+
+	for(i=0; i<omx_ifaces_max; i++)
+		if (omx_ifaces[i] && omx_ifaces[i]->netdev == netdev) {
+			iface = omx_ifaces[i];
+			break;
+		}
+	if (!iface)
+		goto out_with_lock;
+
+	switch (event) {
+	case NETDEV_UNREGISTER: {
+		int ret;
+		printk(KERN_INFO "Open-MX: interface '%s' being unregistered, forcing closing of endpoints...\n",
+		       netdev->name);
+
+		ret = omx_iface_detach_locked(iface, 1 /* force */);
+		BUG_ON(ret);
+		/*
+		 * the device will be released when the last reference is actually released,
+		 * there's no need to wait for it, the caller will do it in rtnl_unlock()
+		 */
+		break;
+	}
+	/* TODO: case NETDEV_CHANGEMTU: */
+	/* TODO: case NETDEV_UP: */
+	/* TODO: case NETDEV_DOWN: */
+	}
+
+ out_with_lock:
+	mutex_unlock(&omx_mutex);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block omx_netdevice_notifier = {
+	.notifier_call = omx_netdevice_notifier_cb,
+};
+
 /****************************************************************
  * Endpoints and ifaces resources initialization and termination
  */
 
 int omx_endpoints_init(void)
 {
+	int err;
+
 	if (!omx_ifaces_max || !omx_endpoints_max)
 		return -EINVAL;
 
@@ -446,6 +502,12 @@ int omx_endpoints_init(void)
 	omx_ifaces_count = 0;
 
 	mutex_init(&omx_mutex);
+
+	err = register_netdevice_notifier(&omx_netdevice_notifier);
+	if (err < 0) {
+		printk(KERN_ERR "Open-MX: failed to register netdevice notifier\n");
+		goto out_with_ifaces;
+	}
 
 	if (omx_module_load_ifnames && strcmp(omx_module_load_ifnames, "all")) {
 		/* attach ifaces whose name are in ifnames (limited to omx_iface_max) */
@@ -475,12 +537,19 @@ int omx_endpoints_init(void)
 	}
 
 	return 0;
+
+ out_with_ifaces:
+	kfree(omx_ifaces);
+	return err;
 }
 
 void omx_endpoints_exit(void)
 {
 	int err;
 	int i;
+
+	/* remove the netdevice notifier now so that nobody can touch the ifaces anymore */
+	unregister_netdevice_notifier(&omx_netdevice_notifier);
 
 	mutex_lock(&omx_mutex);
 	/* there cannot be any endpoint anymore since the file is closed when the module is unloaded */
