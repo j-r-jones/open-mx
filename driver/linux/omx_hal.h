@@ -28,6 +28,14 @@
 #define mutex_unlock(m) up(m)
 #endif
 
+#include <linux/utsname.h>
+#ifdef OMX_HAVE_TASK_STRUCT_NSPROXY
+/* task_struct ns_proxy introduced in 2.6.19 */
+#define omx_current_utsname current->nsproxy->uts_ns->name
+#else
+#define omx_current_utsname system_utsname
+#endif
+
 #ifdef OMX_HAVE_FOR_EACH_NETDEV
 #define omx_for_each_netdev(_ifp) for_each_netdev(&init_net, _ifp)
 #elif defined OMX_HAVE_FOR_EACH_NETDEV_WITHOUT_NS

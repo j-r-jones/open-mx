@@ -21,6 +21,7 @@
 
 #include <linux/kref.h>
 #include <linux/netdevice.h>
+#include <linux/if_ether.h>
 
 struct omx_endpoint {
 	struct kref refcount;
@@ -32,10 +33,18 @@ struct omx_endpoint {
 	u32 iface_index;
 };
 
+struct omx_peer {
+	unsigned char eth_hdr[ETH_ALEN]; /* the mac address, as stored in ethernet header */
+	char *hostname;
+	struct omx_iface *local_iface;
+};
+
 struct omx_iface {
 	struct kref refcount;
 
 	struct net_device *netdev;
+
+	struct omx_peer peer;
 
 	struct omx_endpoint **endpoints;
 	unsigned endpoints_count;

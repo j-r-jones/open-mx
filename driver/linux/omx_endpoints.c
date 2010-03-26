@@ -46,6 +46,7 @@ __omx_iface_last_put(struct kref *kref)
 	struct omx_iface * iface = container_of(kref, struct omx_iface, refcount);
 printk("releasing last ref on iface %d %s\n", iface->iface_index, iface->netdev->name);
 	dev_put(iface->netdev);
+	kfree(iface->peer.hostname);
 	kfree(iface);
 }
 
@@ -169,6 +170,7 @@ static int
 omx_iface_attach_locked(struct net_device * netdev)
 {
 	struct omx_iface * iface;
+	char *hostname;
 	int ret;
 	int i;
 
@@ -205,7 +207,21 @@ omx_iface_attach_locked(struct net_device * netdev)
 
 	/* TODO check up, mtu, coalesce */
 
-	/* TODO hostname */
+	hostname = kmalloc(OMX_HOSTNAMELEN_MAX, GFP_KERNEL);
+	if (!hostname) {
+		printk(KERN_ERR "Open-MX:   Failed to allocate interface hostname\n");
+		ret = -ENOMEM;
+		goto out_with_iface;
+	}
+
+	if (netdev->type == ARPHRD_LOOPBACK)
+		snprintf(hostname, OMX_HOSTNAMELEN_MAX, "localhost");
+	else
+		snprintf(hostname, OMX_HOSTNAMELEN_MAX, "%s:%d", omx_current_utsname.nodename, i);
+	hostname[OMX_HOSTNAMELEN_MAX-1] = '\0';
+	iface->peer.hostname = hostname;
+	iface->peer.local_iface = iface;
+	memcpy(iface->peer.eth_hdr, netdev->dev_addr, sizeof(iface->peer.eth_hdr)); /* netdev->dev_addr might be larger for non-Ethernet hardware */
 
 	kref_init(&iface->refcount);
 	iface->netdev = netdev;
@@ -214,7 +230,7 @@ omx_iface_attach_locked(struct net_device * netdev)
 	if (!iface->endpoints) {
 		printk(KERN_ERR "Open-MX:   Failed to allocate interface endpoint pointers\n");
 		ret = -ENOMEM;
-		goto out_with_iface;
+		goto out_with_hostname;
 	}
 
 	/* TODO raw */
@@ -228,6 +244,8 @@ omx_iface_attach_locked(struct net_device * netdev)
 
 	return 0;
 
+ out_with_hostname:
+	kfree(hostname);
  out_with_iface:
 	kfree(iface);
  out:

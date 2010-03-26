@@ -79,6 +79,16 @@ else
   echo no
 fi
 
+# task_struct nsproxy arrived in 2.6.19
+echo -n "  checking (in kernel headers) nsproxy presence in task_struct ... "
+if sed -ne '/^struct task_struct/,/^};/p' ${LINUX_HDR}/include/linux/sched.h \
+  | grep "struct nsproxy" > /dev/null ; then
+  echo "#define OMX_HAVE_TASK_STRUCT_NSPROXY 1" >> ${TMP_CHECKS_NAME}
+  echo yes
+else
+  echo no
+fi
+
 # dev_base list replaced with for_each_netdev added in 2.6.22
 # and modified for net namespaces in 2.6.24
 echo -n "  checking (in kernel headers) for_each_netdev availability ... "
