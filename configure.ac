@@ -643,7 +643,7 @@ else
       AC_MSG_NOTICE([using FMA for dynamic peer discovery])
       OMX_PEER_DISCOVERY=fma
     else
-      AC_MSG_WARN([Building FMA requires the MX API compatibility])
+      AC_MSG_ERROR([Building FMA requires the MX ABI compatibility])
     fi
   else
     AC_MSG_RESULT([no])
