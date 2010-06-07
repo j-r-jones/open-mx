@@ -4,6 +4,8 @@ Open-MX 1.2.2 (.... 2010, svn/open-mx-1.2.x r....)
 Bug fixes:
 * Fix the management of skb destructors to be compatible with 2.6.33
   kernel and laters.
+* Fix memory corruption when multiple threads access multiple endpoints
+  simultaneously.
 * Fix checksumming of unexpected self messages.
 * Fix omxoed to generate a consistent mapper id across the fabric.
 * Improve the ABI of some internal symbols so that Open MPI generates
