@@ -15,9 +15,19 @@
 # See the GNU General Public License in COPYING.GPL for more details.
 
 AC_INIT([Open-MX],
-        1.2.1,
+        1.2.2,
         [http://open-mx.org],
         open-mx)
+
+AC_MSG_ERROR([
+ **************************************************************
+ The 1.2.x branch is no longer maintained. It misses many fixes
+ and will not receive further patches. Please use the 1.3.x
+ branch or later instead.
+ If you notice any regression, please report it to
+   open-mx-devel@lists.gforge.inria.fr
+ **************************************************************])
+
 AC_CONFIG_SRCDIR(common/omx_io.h)
 AC_PREREQ(2.59)
 AC_CANONICAL_SYSTEM
