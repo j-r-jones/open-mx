@@ -249,8 +249,7 @@ omx__progress(struct omx_endpoint * ep)
     }
 
     /* next event id */
-    ep->next_unexp_event_id = ( ep->next_unexp_event_id == OMX_EVENTQ_MAX_ID) ? 
-      1 : ep->next_unexp_event_id + 1;
+    ep->next_unexp_event_id = (ep->next_unexp_event_id % OMX_EVENTQ_MAX_ID) + 1; 
     if (unlikely((void *) evt >= ep->unexp_eventq + OMX_UNEXP_EVENTQ_SIZE))
       evt = ep->unexp_eventq;
     ep->next_unexp_event = (void *) evt;
@@ -277,8 +276,7 @@ omx__progress(struct omx_endpoint * ep)
     }
 
     /* next event id */
-    ep->next_exp_event_id = (ep->next_exp_event_id == OMX_EVENTQ_MAX_ID) ? 
-      1 : ep->next_exp_event_id + 1;
+    ep->next_exp_event_id = (ep->next_exp_event_id % OMX_EVENTQ_MAX_ID) + 1;
     if (unlikely((void *) evt >= ep->exp_eventq + OMX_EXP_EVENTQ_SIZE))
       evt = ep->exp_eventq;
     ep->next_exp_event = (void *) evt;

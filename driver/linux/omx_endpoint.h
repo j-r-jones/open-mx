@@ -64,10 +64,10 @@ struct omx_endpoint {
 	struct omx_iface * iface;
 
 	void * sendq, * recvq, * exp_eventq, * unexp_eventq;
-	uint8_t       next_exp_event_id, next_unexp_event_id;
-	unsigned long next_exp_eventq_offset, last_free_exp_eventq_offset;
-	unsigned long next_free_unexp_eventq_offset, next_reserved_unexp_eventq_offset, last_free_unexp_eventq_offset;
-	unsigned long next_recvq_offset;
+	unsigned long last_free_exp_eventq_offset;
+	unsigned long last_free_unexp_eventq_offset;
+	atomic64_t exp_eventq_counter, unexp_eventq_counter, unexp_reserved_counter;
+	atomic64_t recvq_counter;
 	struct list_head waiters;
 	spinlock_t event_lock, release_exp_lock, release_unexp_lock;
 

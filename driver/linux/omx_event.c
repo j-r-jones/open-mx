@@ -43,6 +43,8 @@ omx_wakeup_waiter_list(struct omx_endpoint *endpoint,
 {
 	struct omx_event_waiter *waiter, *next;
 
+	/*TODO: Utiliser des rcu */
+
 	/* wake up everybody with the event status */
 	list_for_each_entry_safe(waiter, next, &endpoint->waiters, list_elt) {
 		waiter->status = status;
@@ -90,28 +92,26 @@ omx_endpoint_queues_init(struct omx_endpoint *endpoint)
 	    (void *) evt < endpoint->exp_eventq + OMX_EXP_EVENTQ_SIZE;
 	    evt++)
 		evt->generic.type = OMX_EVT_NONE;
-	/* set the first expected event slot */
-	endpoint->next_exp_eventq_offset = 0;
+	/* set the expected eventq counter (required for slot and id) */
+	atomic64_set(&endpoint->exp_eventq_counter, 0);
 
 	/* set the last free expected event slot */
 	endpoint->last_free_exp_eventq_offset = OMX_EXP_EVENTQ_SIZE;
-	endpoint->next_exp_event_id = 1;
 
 	/* initialize all unexpected events to none */
 	for(evt = endpoint->unexp_eventq;
 	    (void *) evt < endpoint->unexp_eventq + OMX_UNEXP_EVENTQ_SIZE;
 	    evt++)
 		evt->generic.type = OMX_EVT_NONE;
-	/* set the first free and reserved unexpected event slot */
-	endpoint->next_free_unexp_eventq_offset = 0;
-	endpoint->next_reserved_unexp_eventq_offset = 0;
+	/* set the unexpected eventq counter, and then the reserved counter */
+	atomic64_set(&endpoint->unexp_eventq_counter, 0);
+	atomic64_set(&endpoint->unexp_reserved_counter, 0);
 
 	/* set the last free unexpected event slot */
 	endpoint->last_free_unexp_eventq_offset = OMX_UNEXP_EVENTQ_SIZE;
-	endpoint->next_unexp_event_id = 1;
 
-	/* set the first recvq slot */
-	endpoint->next_recvq_offset = 0;
+	/* set the recvq counter */
+	atomic64_set(&endpoint->recvq_counter, 0);
 
 	INIT_LIST_HEAD(&endpoint->waiters);
 	spin_lock_init(&endpoint->event_lock);
@@ -127,10 +127,14 @@ int
 omx_notify_exp_event(struct omx_endpoint *endpoint, const void *event, int length)
 {
 	union omx_evt *slot;
+	unsigned long exp_counter, offset;
+	uint8_t evt_id;
 
-	spin_lock_bh(&endpoint->event_lock);
+	exp_counter = atomic64_inc_return(&endpoint->exp_eventq_counter) - 1;
+	offset = (exp_counter * OMX_EVENTQ_ENTRY_SIZE) % OMX_EXP_EVENTQ_SIZE;
+	evt_id = (exp_counter % OMX_EVENTQ_MAX_ID) + 1;
 
-	slot = endpoint->exp_eventq + endpoint->next_exp_eventq_offset;
+	slot = endpoint->exp_eventq + offset;
 	if (unlikely(slot == endpoint->exp_eventq + endpoint->last_free_exp_eventq_offset)) {
 		/* the application sucks, it did not check
 		 * the expected eventq before posting requests
@@ -140,29 +144,18 @@ omx_notify_exp_event(struct omx_endpoint *endpoint, const void *event, int lengt
 			endpoint->endpoint_index);
 		omx_counter_inc(endpoint->iface, EXP_EVENTQ_FULL);
 		endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_EXP_EVENTQ_FULL;
-		spin_unlock_bh(&endpoint->event_lock);
 		return -EBUSY;
 	}
 
-	if (unlikely(endpoint->next_exp_eventq_offset >= OMX_EXP_EVENTQ_SIZE)) {
-		endpoint->next_exp_eventq_offset = 0;
-		slot = endpoint->exp_eventq;
-	}
-
-	/* update the queue */
-	endpoint->next_exp_eventq_offset += OMX_EVENTQ_ENTRY_SIZE;
-
-	/* store the event and then the actual type */
+	/* store the event and then the actual id */
 	memcpy(slot, event, length);
 	wmb();
-	((struct omx_evt_generic *) slot)->id   = endpoint->next_exp_event_id;
-	endpoint->next_exp_event_id = (endpoint->next_exp_event_id == OMX_EVENTQ_MAX_ID) ? 
-		1 : endpoint->next_exp_event_id + 1;
+	((struct omx_evt_generic *) slot)->id = evt_id;
 
 	/* wake up waiters */
 	dprintk(EVENT, "notify_exp waking up everybody\n");
+	spin_lock_bh(&endpoint->event_lock);
 	omx_wakeup_waiter_list(endpoint, OMX_CMD_WAIT_EVENT_STATUS_EVENT);
-
 	spin_unlock_bh(&endpoint->event_lock);
 
 	return 0;
@@ -177,10 +170,14 @@ int
 omx_notify_unexp_event(struct omx_endpoint *endpoint, const void *event, int length)
 {
 	union omx_evt *slot;
+	unsigned long unexp_counter, reserved_counter, free_offset, reserved_offset;
+	uint8_t evt_id;
 
-	spin_lock_bh(&endpoint->event_lock);
+	unexp_counter = atomic64_inc_return(&endpoint->unexp_eventq_counter) - 1;
+	free_offset = (unexp_counter * OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE;
+	evt_id = (unexp_counter % OMX_EVENTQ_MAX_ID) + 1;
 
-	slot = endpoint->unexp_eventq + endpoint->next_free_unexp_eventq_offset;
+	slot = endpoint->unexp_eventq + free_offset;
 	if (unlikely(slot == endpoint->unexp_eventq + endpoint->last_free_unexp_eventq_offset)) {
 		/* the application sucks, it did not check
 		 * the unexpected eventq before posting requests
@@ -189,34 +186,25 @@ omx_notify_unexp_event(struct omx_endpoint *endpoint, const void *event, int len
 			"Open-MX: Unexpected event queue full, no event slot available for endpoint %d\n",
 			endpoint->endpoint_index);
 		omx_counter_inc(endpoint->iface, UNEXP_EVENTQ_FULL);
+		atomic64_dec(&endpoint->unexp_eventq_counter);
 		endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_UNEXP_EVENTQ_FULL;
-		spin_unlock_bh(&endpoint->event_lock);
 		return -EBUSY;
 	}
-	
-	if (unlikely(endpoint->next_free_unexp_eventq_offset >= OMX_UNEXP_EVENTQ_SIZE))
-		endpoint->next_free_unexp_eventq_offset = 0;
-
-	/* update the next free slot in the queue */
-	endpoint->next_free_unexp_eventq_offset += OMX_EVENTQ_ENTRY_SIZE;
 
 	/* find and update the next reserved slot in the queue */
-	slot = endpoint->unexp_eventq + endpoint->next_reserved_unexp_eventq_offset;
-	endpoint->next_reserved_unexp_eventq_offset += OMX_EVENTQ_ENTRY_SIZE;
-	if (unlikely(endpoint->next_reserved_unexp_eventq_offset >= OMX_UNEXP_EVENTQ_SIZE))
-		endpoint->next_reserved_unexp_eventq_offset = 0;
+	reserved_counter = atomic64_inc_return(&endpoint->unexp_reserved_counter) - 1;
+	reserved_offset = (reserved_counter * OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE;
+	slot = endpoint->unexp_eventq + reserved_offset;
 
-	/* store the event and then the actual type */
+	/* store the event and then the actual id */
 	memcpy(slot, event, length);
 	wmb();
-	((struct omx_evt_generic *) slot)->id = endpoint->next_unexp_event_id;
-	endpoint->next_unexp_event_id = (endpoint->next_unexp_event_id == OMX_EVENTQ_MAX_ID) ? 
-		1 : endpoint->next_unexp_event_id + 1;
+	((struct omx_evt_generic *) slot)->id = evt_id;
 
 	/* wake up waiters */
 	dprintk(EVENT, "notify_unexp waking up everybody\n");
+	spin_lock_bh(&endpoint->event_lock);
 	omx_wakeup_waiter_list(endpoint, OMX_CMD_WAIT_EVENT_STATUS_EVENT);
-	
 	spin_unlock_bh(&endpoint->event_lock);
 
 	return 0;
@@ -240,35 +228,27 @@ omx_prepare_notify_unexp_event_with_recvq(struct omx_endpoint *endpoint,
 					  unsigned long *recvq_offset_p)
 {
 	union omx_evt *slot;
-
-	spin_lock_bh(&endpoint->event_lock);
+	unsigned long offset, counter;
 
 	/* check that there's a slot available and reserve it */
-	slot = endpoint->unexp_eventq + endpoint->next_free_unexp_eventq_offset;
+	counter = atomic64_inc_return(&endpoint->unexp_eventq_counter) - 1;
+	offset = (counter * OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE;
+	slot = endpoint->unexp_eventq + offset;
+
 	if (unlikely(slot == endpoint->unexp_eventq + endpoint->last_free_unexp_eventq_offset)) {
 		dprintk(EVENT,
 			"Open-MX: Unexpected event queue full, no event slot available for endpoint %d\n",
 			endpoint->endpoint_index);
 		omx_counter_inc(endpoint->iface, EXP_EVENTQ_FULL);
-		endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_UNEXP_EVENTQ_FULL;
-		spin_unlock_bh(&endpoint->event_lock);
+		atomic64_dec(&endpoint->unexp_eventq_counter);
+		endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_UNEXP_EVENTQ_FULL;	
 		return -EBUSY;
 	}
 
-	if (unlikely(endpoint->next_free_unexp_eventq_offset >= OMX_UNEXP_EVENTQ_SIZE))
-		endpoint->next_free_unexp_eventq_offset = 0;
-
-	/* update the next free slot in the queue */
-	endpoint->next_free_unexp_eventq_offset += OMX_EVENTQ_ENTRY_SIZE;
-
 	/* take the next recvq slot and return it now */
-	*recvq_offset_p = endpoint->next_recvq_offset;
-	endpoint->next_recvq_offset += OMX_RECVQ_ENTRY_SIZE;
-	if (unlikely(endpoint->next_recvq_offset >= OMX_RECVQ_SIZE))
-		/* all slots have the same size, so there can't be a slot that wraps around the end */
-		endpoint->next_recvq_offset = 0;
-
-	spin_unlock_bh(&endpoint->event_lock);
+	counter = atomic64_inc_return(&endpoint->recvq_counter) - 1;
+	*recvq_offset_p = (counter * OMX_RECVQ_ENTRY_SIZE) % OMX_RECVQ_SIZE;
+	/* all slots have the same size, so there can't be a slot that wraps around the end */
 	return 0;
 }
 
@@ -279,14 +259,13 @@ omx_prepare_notify_unexp_events_with_recvq(struct omx_endpoint *endpoint,
 					   unsigned long *recvq_offset_p)
 {
 	union omx_evt *slot;
-	unsigned long offset;
+	unsigned long offset, counter;
 	int i;
 
-	spin_lock_bh(&endpoint->event_lock);
-
 	/* check that there are enough slots available */
-	offset = endpoint->next_free_unexp_eventq_offset;
+	counter = atomic64_read(&endpoint->unexp_eventq_counter);
 	for(i=0; i<nr; i++) {
+		offset = (counter * OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE;
 		slot = endpoint->unexp_eventq + offset;
 		if (unlikely(slot == endpoint->unexp_eventq + endpoint->last_free_unexp_eventq_offset)) {
 			dprintk(EVENT,
@@ -294,27 +273,20 @@ omx_prepare_notify_unexp_events_with_recvq(struct omx_endpoint *endpoint,
 				endpoint->endpoint_index);
 			omx_counter_inc(endpoint->iface, EXP_EVENTQ_FULL);
 			endpoint->userdesc->status |= OMX_ENDPOINT_DESC_STATUS_UNEXP_EVENTQ_FULL;
-			spin_unlock_bh(&endpoint->event_lock);
 			return -EBUSY;
 		}
-		if (unlikely(offset >= OMX_UNEXP_EVENTQ_SIZE))
-			offset = 0;
-		offset += OMX_EVENTQ_ENTRY_SIZE;
+		counter++;
 	}
 
 	/* update the next free slot in the queue */
-	endpoint->next_free_unexp_eventq_offset = offset;
+	atomic64_set(&endpoint->unexp_eventq_counter, counter);
 
 	/* take the next recvq slots and return them now */
 	for(i=0; i<nr; i++) {
-		recvq_offset_p[i] = endpoint->next_recvq_offset;
-		endpoint->next_recvq_offset += OMX_RECVQ_ENTRY_SIZE;
-		if (unlikely(endpoint->next_recvq_offset >= OMX_RECVQ_SIZE))
-			/* all slots have the same size, so there can't be a slot that wraps around the end */
-			endpoint->next_recvq_offset = 0;
+		counter = atomic64_inc_return(&endpoint->recvq_counter) - 1;
+		recvq_offset_p[i] = (counter * OMX_RECVQ_ENTRY_SIZE) % OMX_RECVQ_SIZE;	
+	 	/* all slots have the same size, so there can't be a slot that wraps around the end */
 	}
-
-	spin_unlock_bh(&endpoint->event_lock);
 	return 0;
 }
 
@@ -328,29 +300,30 @@ omx_commit_notify_unexp_event_with_recvq(struct omx_endpoint *endpoint,
 					 const void *event, int length)
 {
 	union omx_evt *slot;
+	unsigned long reserved_counter, reserved_offset;
+	uint8_t evt_id;
 
-	spin_lock_bh(&endpoint->event_lock);
-
+	reserved_counter = atomic64_inc_return(&endpoint->unexp_reserved_counter) - 1;
+	reserved_offset = (reserved_counter * OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE;
+	evt_id = (reserved_counter % OMX_EVENTQ_MAX_ID) + 1;
+	
 	/* the caller should have called prepare() earlier */
-	BUG_ON(endpoint->next_reserved_unexp_eventq_offset == endpoint->next_free_unexp_eventq_offset);
+	BUG_ON(reserved_offset == 
+	       ((unsigned long)atomic64_read(&endpoint->unexp_eventq_counter) 
+		* OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE);
 
-	/* update the next reserved slot in the queue */
-	slot = endpoint->unexp_eventq + endpoint->next_reserved_unexp_eventq_offset;
-	endpoint->next_reserved_unexp_eventq_offset += OMX_EVENTQ_ENTRY_SIZE;
-	if (unlikely(endpoint->next_reserved_unexp_eventq_offset >= OMX_UNEXP_EVENTQ_SIZE))
-		endpoint->next_reserved_unexp_eventq_offset = 0;
+	/* get the next reserved slot in the queue */
+	slot = endpoint->unexp_eventq + reserved_offset;
 
-	/* store the event and then the actual type */
+	/* store the event and then the actual id */
 	memcpy(slot, event, length);
 	wmb();
-	((struct omx_evt_generic *) slot)->id   = endpoint->next_unexp_event_id;
-	endpoint->next_unexp_event_id = (endpoint->next_unexp_event_id == OMX_EVENTQ_MAX_ID) ? 
-		1 : endpoint->next_unexp_event_id + 1;
+	((struct omx_evt_generic *) slot)->id = evt_id;
 
 	/* wake up waiters */
 	dprintk(EVENT, "commit_notify_unexp waking up everybody\n");
+	spin_lock_bh(&endpoint->event_lock);
 	omx_wakeup_waiter_list(endpoint, OMX_CMD_WAIT_EVENT_STATUS_EVENT);
-
 	spin_unlock_bh(&endpoint->event_lock);
 }
 
@@ -364,24 +337,23 @@ void
 omx_cancel_notify_unexp_event_with_recvq(struct omx_endpoint *endpoint)
 {
 	union omx_evt *slot;
+	unsigned long reserved_counter, reserved_offset;
 
-	spin_lock_bh(&endpoint->event_lock);
+	reserved_counter = atomic64_inc_return(&endpoint->unexp_reserved_counter) - 1;
+	reserved_offset = (reserved_counter * OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE;
 
 	/* the caller should have called prepare() earlier */
-	BUG_ON(endpoint->next_reserved_unexp_eventq_offset == endpoint->next_free_unexp_eventq_offset);
+	BUG_ON(reserved_offset == 
+	       ((unsigned long)atomic64_read(&endpoint->unexp_eventq_counter) 
+		* OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE);
 
-	/* update the next reserved slot in the queue */
-	slot = endpoint->unexp_eventq + endpoint->next_reserved_unexp_eventq_offset;
-	endpoint->next_reserved_unexp_eventq_offset += OMX_EVENTQ_ENTRY_SIZE;
-	if (unlikely(endpoint->next_reserved_unexp_eventq_offset >= OMX_UNEXP_EVENTQ_SIZE))
-		endpoint->next_reserved_unexp_eventq_offset = 0;
+	/* get the next reserved slot in the queue */
+	slot = endpoint->unexp_eventq + reserved_offset;
 
 	/* fill an event to be ignored by user-space */
 	((struct omx_evt_generic *) slot)->type = OMX_EVT_IGNORE;
 
 	/* no need to wakeup people */
-
-	spin_unlock_bh(&endpoint->event_lock);
 }
 
 /***********
@@ -417,17 +389,18 @@ omx_ioctl_wait_event(struct omx_endpoint * endpoint, void __user * uparam)
 	/* FIXME: wait on some event type only */
 
 	spin_lock_bh(&endpoint->event_lock);
-
+	unsigned long nxt_exp = (atomic64_read(&endpoint->exp_eventq_counter) * OMX_EVENTQ_ENTRY_SIZE) % OMX_EXP_EVENTQ_SIZE;
+	unsigned long nxt_reserved = (atomic64_read(&endpoint->unexp_reserved_counter) * OMX_EVENTQ_ENTRY_SIZE) % OMX_UNEXP_EVENTQ_SIZE;;
 	/* check for race conditions */
-	if ((cmd.next_exp_event_offset != endpoint->next_exp_eventq_offset)
-	    || (cmd.next_unexp_event_offset != endpoint->next_reserved_unexp_eventq_offset)
+	if ((cmd.next_exp_event_offset != nxt_exp)
+	    || (cmd.next_unexp_event_offset != nxt_reserved)
 	    || (cmd.user_event_index != endpoint->userdesc->user_event_index)) {
 		dprintk(EVENT, "wait event race (%ld,%ld,%ld) != (%ld,%ld,%ld)\n",
 			(unsigned long) cmd.next_exp_event_offset,
 			(unsigned long) cmd.next_unexp_event_offset,
 			(unsigned long) cmd.user_event_index,
-			endpoint->next_exp_eventq_offset,
-			endpoint->next_reserved_unexp_eventq_offset,
+			nxt_exp,
+			nxt_reserved,
 			(unsigned long) endpoint->userdesc->user_event_index);
 		spin_unlock_bh(&endpoint->event_lock);
 		cmd.status = OMX_CMD_WAIT_EVENT_STATUS_RACE;
@@ -519,12 +492,16 @@ omx_ioctl_wait_event(struct omx_endpoint * endpoint, void __user * uparam)
 int
 omx_ioctl_release_exp_chunk(struct omx_endpoint *endpoint, void __user *uparam)
 {
+	unsigned long next_exp_eventq_offset;
+
 	spin_lock(&endpoint->release_exp_lock);
+
+	next_exp_eventq_offset = ((unsigned long)atomic64_read(&endpoint->exp_eventq_counter) * OMX_EVENTQ_ENTRY_SIZE) % OMX_EXP_EVENTQ_SIZE;
 
 	endpoint->last_free_exp_eventq_offset += OMX_EXP_CHUNK_SIZE;
 	endpoint->last_free_exp_eventq_offset %= OMX_EXP_EVENTQ_SIZE;
 
-	if (unlikely(endpoint->last_free_exp_eventq_offset == endpoint->next_exp_eventq_offset))
+	if (unlikely(endpoint->last_free_exp_eventq_offset == next_exp_eventq_offset))
 		endpoint->last_free_exp_eventq_offset -= OMX_EVENTQ_ENTRY_SIZE;
 
 	spin_unlock(&endpoint->release_exp_lock);
@@ -535,12 +512,17 @@ omx_ioctl_release_exp_chunk(struct omx_endpoint *endpoint, void __user *uparam)
 int
 omx_ioctl_release_unexp_chunk(struct omx_endpoint *endpoint, void __user *uparam)
 {
+	unsigned long next_free_unexp_eventq_offset;
+
 	spin_lock(&endpoint->release_unexp_lock);
+	
+	next_free_unexp_eventq_offset = ((unsigned long)atomic64_read(&endpoint->unexp_eventq_counter) * OMX_EVENTQ_ENTRY_SIZE) 
+		% OMX_UNEXP_EVENTQ_SIZE;
 
 	endpoint->last_free_unexp_eventq_offset += OMX_UNEXP_CHUNK_SIZE;
 	endpoint->last_free_unexp_eventq_offset %= OMX_UNEXP_EVENTQ_SIZE;
 
-	if (unlikely(endpoint->last_free_unexp_eventq_offset == endpoint->next_free_unexp_eventq_offset))
+	if (unlikely(endpoint->last_free_unexp_eventq_offset == next_free_unexp_eventq_offset))
 		endpoint->last_free_unexp_eventq_offset -= OMX_EVENTQ_ENTRY_SIZE;
 
 	spin_unlock(&endpoint->release_unexp_lock);
