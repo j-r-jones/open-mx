@@ -43,7 +43,7 @@ omx_wakeup_waiter_list(struct omx_endpoint *endpoint,
 {
 	struct omx_event_waiter *waiter, *next;
 
-	/*TODO: Utiliser des rcu */
+	/*TODO: Use RCU */
 
 	/* wake up everybody with the event status */
 	list_for_each_entry_safe(waiter, next, &endpoint->waiters, list_elt) {
