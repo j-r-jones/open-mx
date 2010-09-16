@@ -60,6 +60,13 @@ if OMX_LIB_DLMALLOC
   libopen_mx_la_SOURCES += ../dlmalloc.c
 endif
 
+libopen_mx_CFLOW_INPUT = $(foreach src, $(libopen_mx_la_SOURCES), $(srcdir)/$(src) )
+libopen_mx.cflow: $(libopen_mx_CFLOW_INPUT) Makefile
+	cflow -o$@ $(CFLOW_FLAGS) --cpp --symbol __restrict:type --symbol __const:type -D__extension__= -D__attribute__\\\(c\\\)= -D__asm__\\\(c\\\)= -Dinline= \
+	    --emacs --omit-arguments $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	    -I$(abs_srcdir)/.. -I$(abs_top_srcdir)/common -I$(abs_top_srcdir)/common/mx	\
+	    $(CPPFLAGS) $(libopen_mx_CFLOW_INPUT)
+
 all-local:
 	@$(MKDIR_P) .libs
 	@$(LN_S) -f libopen-mx.so .libs/libmyriexpress.so
