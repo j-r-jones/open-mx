@@ -60,12 +60,36 @@ if OMX_LIB_DLMALLOC
   libopen_mx_la_SOURCES += ../dlmalloc.c
 endif
 
+api_eps = mx__init_api mx__regcache_clean mx_board_number_to_nic_id mx_buffered mx_cancel	\
+	  mx_close_endpoint mx_connect mx_context mx_decompose_endpoint_addr			\
+	  mx_decompose_endpoint_addr2 mx_disable_progression mx_disconnect mx_finalize mx_forget\
+	  mx_get_endpoint_addr mx_get_endpoint_addr_context mx_get_info mx_hostname_to_nic_id	\
+	  mx_ibuffered mx_iconnect mx_iget mx_ipeek mx_iprobe mx_iput mx_irecv mx_isend		\
+	  mx_issend mx_nic_id_to_board_number mx_nic_id_to_hostname mx_open_board		\
+	  mx_open_endpoint mx_peek mx_probe mx_progress mx_raw_clear_routes			\
+	  mx_raw_close_endpoint mx_raw_handle mx_raw_line_speed mx_raw_next_event		\
+	  mx_raw_num_ports mx_raw_open_endpoint mx_raw_remove_peer mx_raw_send			\
+	  mx_raw_set_hostname mx_raw_set_map_version mx_raw_set_nic_reply_info			\
+	  mx_raw_set_peer_name mx_raw_set_route mx_raw_set_route_begin mx_raw_set_route_end	\
+	  mx_raw_set_route_mag mx_reenable_progression mx_register_unexp_callback		\
+	  mx_register_unexp_handler mx_set_endpoint_addr_context mx_set_error_handler		\
+	  mx_set_request_timeout mx_strerror mx_strstatus mx_test mx_test_any mx_wait		\
+	  mx_wait_any mx_wakeup
+
+.PHONY: libopen_mx.cflow
 libopen_mx_CFLOW_INPUT = $(foreach src, $(libopen_mx_la_SOURCES), $(srcdir)/$(src) )
 libopen_mx.cflow: $(libopen_mx_CFLOW_INPUT) Makefile
-	cflow -o$@ $(CFLOW_FLAGS) --cpp --symbol __restrict:type --symbol __const:type -D__extension__= -D__attribute__\\\(c\\\)= -D__asm__\\\(c\\\)= -Dinline= \
-	    --format=posix --omit-arguments --level-indent='0=\t' --level-indent='1=\t' --level-indent=start='\t' $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	    -I$(abs_srcdir)/.. -I$(abs_top_srcdir)/common -I$(abs_top_srcdir)/common/mx	\
-	    $(CPPFLAGS) $(libopen_mx_CFLOW_INPUT)
+	@mkdir -p cflows
+	@$(foreach fn, $(api_eps),								 \
+	    cflow -ocflows/$(fn).cflow $(CFLOW_FLAGS)						 \
+	    --cpp="gcc -E -imacros $(abs_top_builddir)/common/config.h"				 \
+	    --symbol __restrict:type --symbol __const:type 					 \
+	    -D__extension__= -D__attribute__\\\(c\\\)= -D__asm__\\\(c\\\)= -Dinline=		 \
+	    --format=posix --omit-arguments --main=$(fn)					 \
+	    --level-indent='0=\t' --level-indent='1=\t' --level-indent=start='\t'		 \
+	    $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES)						 \
+	    -I$(abs_srcdir)/.. -I$(abs_top_srcdir)/common -I$(abs_top_srcdir)/common/mx		 \
+	    $(CPPFLAGS) $(libopen_mx_CFLOW_INPUT);)
 
 all-local:
 	@$(MKDIR_P) .libs
