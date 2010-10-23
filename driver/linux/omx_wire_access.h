@@ -21,10 +21,6 @@
 
 #ifdef OMX_ENDIAN_COMPAT
 
-#ifndef __KERNEL__
-#include <arpa/inet.h>
-#endif
-
 #define OMX_PKT_FIELD_FROM(_pkt_field, _field)	\
 do {						\
 	uint32_t _tmp;				\
