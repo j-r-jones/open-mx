@@ -583,9 +583,9 @@ omx_open_endpoint(uint32_t board_index, uint32_t endpoint_index, uint32_t key,
   INIT_LIST_HEAD(&ep->internal_done_req_q);
 #endif
 
-  INIT_LIST_HEAD(&ep->partners_to_ack_immediate_list);
+  TAILQ_INIT(&ep->partners_to_ack_immediate_list);
   ep->last_partners_acking_jiffies = 0;
-  INIT_LIST_HEAD(&ep->partners_to_ack_delayed_list);
+  TAILQ_INIT(&ep->partners_to_ack_delayed_list);
   INIT_LIST_HEAD(&ep->throttling_partners_list);
 
   LIST_INIT(&ep->sleepers);

@@ -108,7 +108,7 @@ omx_decompose_endpoint_addr_with_session(omx_endpoint_addr_t endpoint_addr,
  */
 
 static void
-omx__partner_reset(struct omx__partner *partner)
+omx__partner_reset(struct omx_endpoint *ep, struct omx__partner *partner)
 {
   INIT_LIST_HEAD(&partner->non_acked_req_q);
   INIT_LIST_HEAD(&partner->connect_req_q);
@@ -132,8 +132,11 @@ omx__partner_reset(struct omx__partner *partner)
   partner->throttling_sends_nr = 0;
 
   if (partner->need_ack != OMX__PARTNER_NEED_NO_ACK) {
+    if (partner->need_ack == OMX__PARTNER_NEED_ACK_DELAYED)
+      TAILQ_REMOVE(&ep->partners_to_ack_immediate_list, partner, endpoint_partners_to_ack_elt);
+    else
+      TAILQ_REMOVE(&ep->partners_to_ack_delayed_list, partner, endpoint_partners_to_ack_elt);
     partner->need_ack = OMX__PARTNER_NEED_NO_ACK;
-    list_del(&partner->endpoint_partners_to_ack_elt);
   }
 }
 
@@ -157,7 +160,7 @@ omx__partner_create(struct omx_endpoint *ep, uint16_t peer_index,
   partner->next_match_recv_seq = 0; /* first session, seqnum will be initialized by omx__partner_reset() */
   partner->need_ack = OMX__PARTNER_NEED_NO_ACK;
 
-  omx__partner_reset(partner);
+  omx__partner_reset(ep, partner);
 
   partner_index = ((uint32_t) endpoint_index)
     + ((uint32_t) peer_index) * omx__driver_desc->endpoint_max;
@@ -923,7 +926,7 @@ omx__partner_cleanup(struct omx_endpoint *ep, struct omx__partner *partner, int 
   /*
    * Reset everything else to zero
    */
-  omx__partner_reset(partner);
+  omx__partner_reset(ep, partner);
 
   if (disconnect) {
     /*

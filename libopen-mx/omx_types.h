@@ -190,7 +190,7 @@ struct omx__partner {
    */
 
   /* acks */
-  struct list_head endpoint_partners_to_ack_elt;
+  TAILQ_ENTRY(omx__partner) endpoint_partners_to_ack_elt;
   enum omx__partner_need_ack need_ack;
   /* when a ack is need but not immediately (need_ack == ACK_DELAYED) */
   uint64_t oldest_recv_time_not_acked;
@@ -324,8 +324,8 @@ struct omx_endpoint {
   struct omx__partner * myself;
 
   uint64_t last_partners_acking_jiffies;
-  struct list_head partners_to_ack_immediate_list;
-  struct list_head partners_to_ack_delayed_list;
+  TAILQ_HEAD(omx__partners_to_ack_immediate_list, omx__partner) partners_to_ack_immediate_list;
+  TAILQ_HEAD(omx__partners_to_ack_delayed_list, omx__partner) partners_to_ack_delayed_list;
   struct list_head throttling_partners_list;
 
   LIST_HEAD(omx__sleeper_list, omx__sleeper) sleepers;

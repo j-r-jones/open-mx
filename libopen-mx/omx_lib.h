@@ -210,7 +210,7 @@ omx__mark_partner_need_ack_delayed(struct omx_endpoint *ep,
   if (partner->need_ack == OMX__PARTNER_NEED_NO_ACK) {
     partner->need_ack = OMX__PARTNER_NEED_ACK_DELAYED;
     partner->oldest_recv_time_not_acked = omx__driver_desc->jiffies;
-    list_add_tail(&partner->endpoint_partners_to_ack_elt, &ep->partners_to_ack_delayed_list);
+    TAILQ_INSERT_TAIL(&ep->partners_to_ack_delayed_list, partner, endpoint_partners_to_ack_elt);
   }
 }
 
@@ -222,12 +222,9 @@ omx__mark_partner_need_ack_immediate(struct omx_endpoint *ep,
 
   if (partner->need_ack != OMX__PARTNER_NEED_ACK_IMMEDIATE) {
     /* queue a new immediate ack, after removing the delayed one if needed */
-    if (partner->need_ack == OMX__PARTNER_NEED_ACK_DELAYED) {
-      list_move(&partner->endpoint_partners_to_ack_elt, &ep->partners_to_ack_immediate_list);
-    } else {
-      list_add_tail(&partner->endpoint_partners_to_ack_elt, &ep->partners_to_ack_immediate_list);
-    }
-
+    if (partner->need_ack == OMX__PARTNER_NEED_ACK_DELAYED)
+      TAILQ_REMOVE(&ep->partners_to_ack_delayed_list, partner, endpoint_partners_to_ack_elt);
+    TAILQ_INSERT_TAIL(&ep->partners_to_ack_immediate_list, partner, endpoint_partners_to_ack_elt);
     partner->need_ack = OMX__PARTNER_NEED_ACK_IMMEDIATE;
   }
 }
@@ -245,8 +242,11 @@ omx__mark_partner_ack_sent(struct omx_endpoint *ep,
 {
   /* drop the previous DELAYED or IMMEDIATE ack */
   if (partner->need_ack != OMX__PARTNER_NEED_NO_ACK) {
+    if (partner->need_ack == OMX__PARTNER_NEED_ACK_DELAYED)
+      TAILQ_REMOVE(&ep->partners_to_ack_immediate_list, partner, endpoint_partners_to_ack_elt);
+    else
+      TAILQ_REMOVE(&ep->partners_to_ack_delayed_list, partner, endpoint_partners_to_ack_elt);
     partner->need_ack = OMX__PARTNER_NEED_NO_ACK;
-    list_del(&partner->endpoint_partners_to_ack_elt);
   }
 
   /* update the last acked seqnum */

@@ -261,9 +261,11 @@ omx__process_partners_to_ack(struct omx_endpoint *ep)
   uint64_t now = omx__driver_desc->jiffies;
 
   /* look at the immediate list */
-  list_for_each_entry_safe(partner, next,
-			   &ep->partners_to_ack_immediate_list, endpoint_partners_to_ack_elt) {
+  partner = TAILQ_FIRST(&ep->partners_to_ack_immediate_list);
+  while (partner) {
     omx_return_t ret;
+
+    next = TAILQ_NEXT(partner, endpoint_partners_to_ack_elt);
 
     omx__debug_printf(ACK, ep, "acking immediately back to partner %016llx ep %d up to %d (#%d) at jiffies %lld\n",
 		      (unsigned long long) partner->board_addr, (unsigned) partner->endpoint_index,
@@ -277,6 +279,8 @@ omx__process_partners_to_ack(struct omx_endpoint *ep)
       break;
 
     omx__mark_partner_ack_sent(ep, partner);
+
+    partner = next;
   }
 
   /* no need to bother looking at the delayed list if the time didn't change */
@@ -285,9 +289,11 @@ omx__process_partners_to_ack(struct omx_endpoint *ep)
   ep->last_partners_acking_jiffies = now;
 
   /* look at the delayed list */
-  list_for_each_entry_safe(partner, next,
-			   &ep->partners_to_ack_delayed_list, endpoint_partners_to_ack_elt) {
+  partner = TAILQ_FIRST(&ep->partners_to_ack_delayed_list);
+  while (partner) {
     omx_return_t ret;
+
+    next = TAILQ_NEXT(partner, endpoint_partners_to_ack_elt);
 
     if (now - partner->oldest_recv_time_not_acked < omx__globals.ack_delay_jiffies)
       /* the remaining ones are more recent, no need to ack them yet */
@@ -306,6 +312,8 @@ omx__process_partners_to_ack(struct omx_endpoint *ep)
       break;
 
     omx__mark_partner_ack_sent(ep, partner);
+
+    partner = next;
   }
 
   /* no need to notify errors */
@@ -316,12 +324,14 @@ omx__flush_partners_to_ack(struct omx_endpoint *ep)
 {
   struct omx__partner *partner, *next;
   /* immediate list should have been emptied at the end of the previous round of progression */
-  omx__debug_assert(list_empty(&ep->partners_to_ack_immediate_list));
+  omx__debug_assert(TAILQ_EMPTY(&ep->partners_to_ack_immediate_list));
 
   /* look at the delayed list */
-  list_for_each_entry_safe(partner, next,
-			   &ep->partners_to_ack_delayed_list, endpoint_partners_to_ack_elt) {
+  partner = TAILQ_FIRST(&ep->partners_to_ack_delayed_list);
+  while (partner) {
     omx_return_t ret;
+
+    next = TAILQ_NEXT(partner, endpoint_partners_to_ack_elt);
 
     omx__debug_printf(ACK, ep, "forcing ack back to partner %016llx ep %d up to %d (#%d), jiffies %lld instead of %lld\n",
 		      (unsigned long long) partner->board_addr, (unsigned) partner->endpoint_index,
@@ -336,6 +346,8 @@ omx__flush_partners_to_ack(struct omx_endpoint *ep)
       continue;
 
     omx__mark_partner_ack_sent(ep, partner);
+
+    partner = next;
   }
 
   /* no need to notify errors */
@@ -349,10 +361,10 @@ omx__prepare_progress_wakeup(struct omx_endpoint *ep)
   uint64_t wakeup_jiffies = OMX_NO_WAKEUP_JIFFIES;
 
   /* any delayed ack to send soon? */
-  if (!list_empty(&ep->partners_to_ack_delayed_list)) {
+  if (!TAILQ_EMPTY(&ep->partners_to_ack_delayed_list)) {
     uint64_t tmp;
 
-    partner = list_first_entry(&ep->partners_to_ack_delayed_list, struct omx__partner, endpoint_partners_to_ack_elt);
+    partner = TAILQ_FIRST(&ep->partners_to_ack_delayed_list);
     tmp = partner->oldest_recv_time_not_acked + omx__globals.ack_delay_jiffies;
 
     omx__debug_printf(WAIT, ep, "need to wakeup at %lld jiffies (in %ld) for delayed acks\n",
