@@ -34,7 +34,7 @@ omx__destroy_requests_on_close(struct omx_endpoint *ep);
  * Endpoint list management
  */
 
-static struct list_head omx_endpoints_list;
+static LIST_HEAD(omx__endpoints_list, omx_endpoint) omx_endpoints_list;
 #ifdef OMX_LIB_THREAD_SAFETY
 static struct omx__lock omx_endpoints_list_lock;
 #endif
@@ -42,7 +42,7 @@ static struct omx__lock omx_endpoints_list_lock;
 static void
 omx__init_endpoint_list(void)
 {
-  INIT_LIST_HEAD(&omx_endpoints_list);
+  LIST_INIT(&omx_endpoints_list);
   omx__lock_init(&omx_endpoints_list_lock);
 }
 
@@ -50,7 +50,7 @@ static INLINE void
 omx__add_endpoint_to_list(struct omx_endpoint *endpoint)
 {
   omx__lock(&omx_endpoints_list_lock);
-  list_add_tail(&endpoint->omx_endpoints_list_elt, &omx_endpoints_list);
+  LIST_INSERT_HEAD(&omx_endpoints_list, endpoint, omx_endpoints_list_elt);
   omx__unlock(&omx_endpoints_list_lock);
 }
 
@@ -62,9 +62,9 @@ omx__remove_endpoint_from_list(struct omx_endpoint *endpoint)
 
   omx__lock(&omx_endpoints_list_lock);
 
-  list_for_each_entry(current, &omx_endpoints_list, omx_endpoints_list_elt)
+  LIST_FOREACH(current, &omx_endpoints_list, omx_endpoints_list_elt)
     if (current == endpoint) {
-      list_del(&endpoint->omx_endpoints_list_elt);
+      LIST_REMOVE(endpoint, omx_endpoints_list_elt);
       ret = OMX_SUCCESS;
       break;
     }
@@ -81,7 +81,7 @@ omx__foreach_endpoint(void (*func)(struct omx_endpoint *, void *), void *data)
   struct omx_endpoint *current;
 
   omx__lock(&omx_endpoints_list_lock);
-  list_for_each_entry(current, &omx_endpoints_list, omx_endpoints_list_elt)
+  LIST_FOREACH(current, &omx_endpoints_list, omx_endpoints_list_elt)
     func(current, data);
   omx__unlock(&omx_endpoints_list_lock);
 }
