@@ -23,7 +23,6 @@
 
 #include <stdint.h>
 #include <sys/queue.h>
-#undef LIST_HEAD // FIXME
 
 #include "omx_io.h"
 #include "omx_list.h"

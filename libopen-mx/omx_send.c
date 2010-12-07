@@ -1417,7 +1417,7 @@ omx__process_resend_requests(struct omx_endpoint *ep)
 {
   union omx_request *req, *next;
   uint64_t now = omx__driver_desc->jiffies;
-  LIST_HEAD(tmp_req_q);
+  struct list_head tmp_req_q = LIST_HEAD_INIT(tmp_req_q);
 
   /* resend the first requests from the non_acked queue */
  start_resending:
