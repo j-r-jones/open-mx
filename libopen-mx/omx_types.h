@@ -232,6 +232,12 @@ enum omx__request_resource {
 #define OMX_REQUEST_SEND_LARGE_RESOURCES (OMX_REQUEST_RESOURCE_SEND_LARGE_REGION | OMX_REQUEST_RESOURCE_LARGE_REGION)
 #define OMX_REQUEST_PULL_RESOURCES (OMX_REQUEST_RESOURCE_EXP_EVENT | OMX_REQUEST_RESOURCE_LARGE_REGION | OMX_REQUEST_RESOURCE_PULL_HANDLE)
 
+/* per endpoint queue of sleepers */
+struct omx__sleeper {
+  LIST_ENTRY(omx__sleeper) list_elt;
+  int need_wakeup;
+};
+
 struct omx_endpoint {
   int fd;
   unsigned endpoint_index, board_index;
@@ -322,7 +328,7 @@ struct omx_endpoint {
   struct list_head partners_to_ack_delayed_list;
   struct list_head throttling_partners_list;
 
-  struct list_head sleepers;
+  LIST_HEAD(omx__sleeper_list, omx__sleeper) sleepers;
 
   TAILQ_HEAD(reg_list, omx__large_region) reg_list; /* registered single-segment windows */
   TAILQ_HEAD(reg_unused_list, omx__large_region) reg_unused_list; /* unused registered single-segment windows, LRU in front */

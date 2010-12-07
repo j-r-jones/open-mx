@@ -22,12 +22,6 @@
 #include "omx_lib.h"
 #include "omx_request.h"
 
-/* per endpoint queue of sleepers */
-struct omx__sleeper {
-  struct list_head list_elt;
-  int need_wakeup;
-};
-
 /**************************
  * Common sleeping routine
  */
@@ -172,7 +166,7 @@ omx_wait(struct omx_endpoint *ep, union omx_request **requestp,
 
   OMX__ENDPOINT_LOCK(ep);
   sleeper.need_wakeup = 0;
-  list_add_tail(&sleeper.list_elt, &ep->sleepers);
+  LIST_INSERT_HEAD(&ep->sleepers, &sleeper, list_elt);
 
   if (omx__globals.waitspin) {
     /* busy spin instead of sleeping */
@@ -215,7 +209,7 @@ omx_wait(struct omx_endpoint *ep, union omx_request **requestp,
   }
 
  out_with_lock:
-  list_del(&sleeper.list_elt);
+  LIST_REMOVE(&sleeper, list_elt);
   OMX__ENDPOINT_UNLOCK(ep);
   *resultp = result;
   return ret;
@@ -346,7 +340,7 @@ omx_wait_any(struct omx_endpoint *ep,
 
   OMX__ENDPOINT_LOCK(ep);
   sleeper.need_wakeup = 0;
-  list_add_tail(&sleeper.list_elt, &ep->sleepers);
+  LIST_INSERT_HEAD(&ep->sleepers, &sleeper, list_elt);
 
   if (omx__globals.waitspin) {
     /* busy spin instead of sleeping */
@@ -389,7 +383,7 @@ omx_wait_any(struct omx_endpoint *ep,
   }
 
  out_with_lock:
-  list_del(&sleeper.list_elt);
+  LIST_REMOVE(&sleeper, list_elt);
   OMX__ENDPOINT_UNLOCK(ep);
  out:
   *resultp = result;
@@ -446,7 +440,7 @@ omx_peek(struct omx_endpoint *ep, union omx_request **requestp,
 
   OMX__ENDPOINT_LOCK(ep);
   sleeper.need_wakeup = 0;
-  list_add_tail(&sleeper.list_elt, &ep->sleepers);
+  LIST_INSERT_HEAD(&ep->sleepers, &sleeper, list_elt);
 
   if (omx__globals.waitspin) {
     /* busy spin instead of sleeping */
@@ -489,7 +483,7 @@ omx_peek(struct omx_endpoint *ep, union omx_request **requestp,
   }
 
  out_with_lock:
-  list_del(&sleeper.list_elt);
+  LIST_REMOVE(&sleeper, list_elt);
   OMX__ENDPOINT_UNLOCK(ep);
   *resultp = result;
   return ret;
@@ -642,7 +636,7 @@ omx_probe(struct omx_endpoint *ep,
 
   OMX__ENDPOINT_LOCK(ep);
   sleeper.need_wakeup = 0;
-  list_add_tail(&sleeper.list_elt, &ep->sleepers);
+  LIST_INSERT_HEAD(&ep->sleepers, &sleeper, list_elt);
 
   if (omx__globals.waitspin) {
     /* busy spin instead of sleeping */
@@ -685,7 +679,7 @@ omx_probe(struct omx_endpoint *ep,
   }
 
  out_with_lock:
-  list_del(&sleeper.list_elt);
+  LIST_REMOVE(&sleeper, list_elt);
   OMX__ENDPOINT_UNLOCK(ep);
  out:
   *resultp = result;
@@ -706,7 +700,7 @@ omx__connect_wait(omx_endpoint_t ep, union omx_request * req, uint32_t ms_timeou
   omx_return_t ret = OMX_SUCCESS;
 
   sleeper.need_wakeup = 0;
-  list_add_tail(&sleeper.list_elt, &ep->sleepers);
+  LIST_INSERT_HEAD(&ep->sleepers, &sleeper, list_elt);
 
   if (omx__globals.connect_pollall) {
     /* busy spin and poll other endpoints instead of sleeping */
@@ -775,7 +769,7 @@ omx__connect_wait(omx_endpoint_t ep, union omx_request * req, uint32_t ms_timeou
   }
 
  out:
-  list_del(&sleeper.list_elt);
+  LIST_REMOVE(&sleeper, list_elt);
   return ret;
 }
 
@@ -789,10 +783,10 @@ omx__wakeup(struct omx_endpoint *ep, uint32_t status)
   if (omx__globals.waitspin) {
     /* change waitspiner's wakeup status */
     struct omx__sleeper *sleeper;
-    list_for_each_entry(sleeper, &ep->sleepers, list_elt)
+    LIST_FOREACH(sleeper, &ep->sleepers, list_elt)
       sleeper->need_wakeup = 1;
 
-  } else if (!list_empty(&ep->sleepers)) {
+  } else if (!LIST_EMPTY(&ep->sleepers)) {
     /* enter the driver to wakeup sleeper if any */
     struct omx_cmd_wakeup wakeup;
     int err;
