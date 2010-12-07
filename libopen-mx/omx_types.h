@@ -22,6 +22,8 @@
 #define __omx_types_h__
 
 #include <stdint.h>
+#include <sys/queue.h>
+#undef LIST_HEAD // FIXME
 
 #include "omx_io.h"
 #include "omx_list.h"
@@ -59,8 +61,8 @@ struct omx__large_region_map {
   struct omx__large_region_slot {
     int next_free;
     struct omx__large_region {
-      struct list_head reg_elt; /* linked into the endpoint reg_list or reg_vect_list */
-      struct list_head reg_unused_elt; /* linked into the endpoint reg_unused_list if contigous, unused and cached */
+      TAILQ_ENTRY(omx__large_region) reg_elt; /* linked into the endpoint reg_list or reg_vect_list */
+      TAILQ_ENTRY(omx__large_region) reg_unused_elt; /* linked into the endpoint reg_unused_list if contigous, unused and cached */
       int use_count;
       uint8_t id;
       uint8_t last_seqnum;
@@ -323,9 +325,9 @@ struct omx_endpoint {
 
   struct list_head sleepers;
 
-  struct list_head reg_list; /* registered single-segment windows */
-  struct list_head reg_unused_list; /* unused registered single-segment windows, LRU in front */
-  struct list_head reg_vect_list; /* registered vectorial windows (uncached) */
+  TAILQ_HEAD(reg_list, omx__large_region) reg_list; /* registered single-segment windows */
+  TAILQ_HEAD(reg_unused_list, omx__large_region) reg_unused_list; /* unused registered single-segment windows, LRU in front */
+  TAILQ_HEAD(reg_vect_list, omx__large_region) reg_vect_list; /* registered vectorial windows (uncached) */
   int large_sends_avail_nr; /* number of simultaneous large send that may be posted,
 			     * limited to prevent deadlocks */
 

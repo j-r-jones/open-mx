@@ -56,9 +56,9 @@ omx__endpoint_large_region_map_init(struct omx_endpoint * ep)
   ep->large_region_map.first_free = 0;
   ep->large_region_map.nr_free = OMX_USER_REGION_MAX;
 
-  INIT_LIST_HEAD(&ep->reg_list);
-  INIT_LIST_HEAD(&ep->reg_unused_list);
-  INIT_LIST_HEAD(&ep->reg_vect_list);
+  TAILQ_INIT(&ep->reg_list);
+  TAILQ_INIT(&ep->reg_unused_list);
+  TAILQ_INIT(&ep->reg_vect_list);
   ep->large_sends_avail_nr = OMX_USER_REGION_MAX/2;
 
   return OMX_SUCCESS;
@@ -117,14 +117,20 @@ omx__endpoint_large_region_map_exit(struct omx_endpoint * ep)
 {
   struct omx__large_region *region, *next;
 
-  list_for_each_entry_safe(region, next, &ep->reg_list, reg_elt) {
+  region = TAILQ_FIRST(&ep->reg_list);
+  while (region) {
+    next = TAILQ_NEXT(region, reg_elt);
     if (!region->use_count)
-      list_del(&region->reg_unused_elt);
+      TAILQ_REMOVE(&ep->reg_unused_list, region, reg_unused_elt);
     omx__destroy_region(ep, region);
+    region = next;
   }
-
-  list_for_each_entry_safe(region, next, &ep->reg_vect_list, reg_elt) {
+    
+  region = TAILQ_FIRST(&ep->reg_vect_list);
+  while (region) {
+    next = TAILQ_NEXT(region, reg_elt);
     omx__destroy_region(ep, region);
+    region = next;
   }
 
   omx_free_ep(ep, ep->large_region_map.array);
@@ -199,7 +205,10 @@ omx__destroy_region(struct omx_endpoint *ep,
 		    struct omx__large_region *region)
 {
   omx__deregister_region(ep, region);
-  list_del(&region->reg_elt);
+  if (region->segs.nseg > 1)
+    TAILQ_REMOVE(&ep->reg_vect_list, region, reg_elt);
+  else
+    TAILQ_REMOVE(&ep->reg_list, region, reg_elt);
   /* no need to free the reqseqs segment array since the request owns it
    * (see omx__create_region())
    */
@@ -216,11 +225,11 @@ omx__endpoint_large_region_alloc(struct omx_endpoint *ep, struct omx__large_regi
 
   if (unlikely(ret == OMX_INTERNAL_MISSING_RESOURCES && omx__globals.regcache)) {
     /* try to free some unused region in the cache */
-    if (!list_empty(&ep->reg_unused_list)) {
+    if (!TAILQ_EMPTY(&ep->reg_unused_list)) {
       struct omx__large_region *region;
-      region = list_first_entry(&ep->reg_unused_list, struct omx__large_region, reg_unused_elt);
+      region = TAILQ_FIRST(&ep->reg_unused_list);
       omx__debug_printf(LARGE, ep, "regcache releasing unused region %d\n", region->id);
-      list_del(&region->reg_unused_elt);
+      TAILQ_REMOVE(&ep->reg_unused_list, region, reg_unused_elt);
       omx__debug_printf(LARGE, ep, "destroying region %d\n", region->id);
       omx__destroy_region(ep, region);
 
@@ -287,14 +296,14 @@ omx__get_contigous_region(struct omx_endpoint *ep,
 
   if (omx__globals.regcache) {
     const struct omx_cmd_user_segment *seg = &reqsegs->single;
-    list_for_each_entry(region, &ep->reg_list, reg_elt) {
+    TAILQ_FOREACH(region, &ep->reg_list, reg_elt) {
       if ((!reserver || !region->reserver)
 	  && (omx__globals.parallel_regcache || !region->use_count)
 	  && region->segs.single.vaddr == seg->vaddr
 	  && region->segs.single.len >= seg->len) {
 
 	if (!(region->use_count++))
-	  list_del(&region->reg_unused_elt);
+	  TAILQ_REMOVE(&ep->reg_unused_list, region, reg_unused_elt);
 	omx__debug_printf(LARGE, ep, "regcache reusing region %d (usecount %d)\n", region->id, region->use_count);
 	goto found;
       }
@@ -306,7 +315,7 @@ omx__get_contigous_region(struct omx_endpoint *ep,
     /* let the caller handle the error */
     goto out;
 
-  list_add_tail(&region->reg_elt, &ep->reg_list);
+  TAILQ_INSERT_TAIL(&ep->reg_list, region, reg_elt);
   region->use_count++;
   omx__debug_printf(LARGE, ep, "created contigous region %d (usecount %d)\n", region->id, region->use_count);
 
@@ -345,7 +354,7 @@ omx__get_vect_region(struct omx_endpoint *ep,
     /* let the caller handle the error */
     goto out;
 
-  list_add_tail(&region->reg_elt, &ep->reg_vect_list);
+  TAILQ_INSERT_TAIL(&ep->reg_vect_list, region, reg_elt);
   region->use_count++;
   omx__debug_printf(LARGE, ep, "created vectorial region %d (usecount %d)\n", region->id, region->use_count);
 
@@ -391,7 +400,7 @@ omx__put_region(struct omx_endpoint *ep,
 
   if (omx__globals.regcache && region->segs.nseg == 1) {
     if (!region->use_count)
-      list_add_tail(&region->reg_unused_elt, &ep->reg_unused_list);
+      TAILQ_INSERT_TAIL(&ep->reg_unused_list, region, reg_unused_elt);
     omx__debug_printf(LARGE, ep, "regcache keeping region %d (usecount %d)\n", region->id, region->use_count);
   } else {
     omx__debug_printf(LARGE, ep, "destroying region %d\n", region->id);
@@ -426,9 +435,12 @@ omx__endpoint_regcache_clean(struct omx_endpoint *ep, void *data)
   struct omx_regcache_clean_segment *inval_seg = (void *)data;
 
   OMX__ENDPOINT_LOCK(ep);
-  list_for_each_entry_safe(region, next, &ep->reg_list, reg_elt) {
+  region = TAILQ_FIRST(&ep->reg_list);
+  while (region) {
     unsigned long reg_begin = region->segs.single.vaddr;
     unsigned long reg_end = reg_begin + region->segs.single.len;
+
+    next = TAILQ_NEXT(region, reg_elt);
 
     /* If the invalidated segment intersects the region segment */
     if (omx__segments_intersect(inval_seg->begin, inval_seg->end, reg_begin, reg_end)) {
@@ -444,9 +456,11 @@ omx__endpoint_regcache_clean(struct omx_endpoint *ep, void *data)
 			  inval_seg->begin, inval_seg->end,
 			  (unsigned) region->id,
 			  reg_begin, reg_end);
-      list_del(&region->reg_unused_elt);
+      TAILQ_REMOVE(&ep->reg_list, region, reg_unused_elt);
       omx__destroy_region(ep, region);
     }
+
+    region = next;
   }
   OMX__ENDPOINT_UNLOCK(ep);
 }
