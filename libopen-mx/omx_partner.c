@@ -133,9 +133,9 @@ omx__partner_reset(struct omx_endpoint *ep, struct omx__partner *partner)
 
   if (partner->need_ack != OMX__PARTNER_NEED_NO_ACK) {
     if (partner->need_ack == OMX__PARTNER_NEED_ACK_DELAYED)
-      TAILQ_REMOVE(&ep->partners_to_ack_immediate_list, partner, endpoint_partners_to_ack_elt);
-    else
       TAILQ_REMOVE(&ep->partners_to_ack_delayed_list, partner, endpoint_partners_to_ack_elt);
+    else
+      TAILQ_REMOVE(&ep->partners_to_ack_immediate_list, partner, endpoint_partners_to_ack_elt);
     partner->need_ack = OMX__PARTNER_NEED_NO_ACK;
   }
 }
