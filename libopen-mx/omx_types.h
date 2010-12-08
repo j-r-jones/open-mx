@@ -149,7 +149,7 @@ struct omx__partner {
   struct list_head need_seqnum_send_req_q;
 
   /* early packets (queued by their partner_elt) */
-  struct list_head early_recv_q;
+  TAILQ_HEAD(omx__early_recv_q, omx__early_packet) early_recv_q;
 
   /* throttling state */
   uint32_t throttling_sends_nr;
@@ -546,7 +546,7 @@ typedef void (*omx__process_recv_func_t) (struct omx_endpoint *ep,
 					  const void *data, uint32_t xfer_length);
 
 struct omx__early_packet {
-  struct list_head partner_elt;
+  TAILQ_ENTRY(omx__early_packet) partner_elt;
   struct omx_evt_recv_msg msg;
   omx__process_recv_func_t recv_func;
   char * data;

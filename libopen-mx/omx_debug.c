@@ -140,7 +140,7 @@ omx__dump_partner_early_q(const struct omx__partner *partner)
   if (omx__globals.debug_signal_level > 1) printf("\n");
 
   count = 0;
-  omx__foreach_partner_early_packet(partner, early)
+  TAILQ_FOREACH(early, &partner->early_recv_q, partner_elt)
     count++;
 
   if (omx__globals.debug_signal_level > 1) printf("     Total: ");

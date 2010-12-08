@@ -113,7 +113,7 @@ omx__partner_reset(struct omx_endpoint *ep, struct omx__partner *partner)
   INIT_LIST_HEAD(&partner->non_acked_req_q);
   INIT_LIST_HEAD(&partner->connect_req_q);
   INIT_LIST_HEAD(&partner->partial_medium_recv_req_q);
-  INIT_LIST_HEAD(&partner->early_recv_q);
+  TAILQ_INIT(&partner->early_recv_q);
   INIT_LIST_HEAD(&partner->need_seqnum_send_req_q);
 
   BUILD_BUG_ON(sizeof(omx__seqnum_t) != sizeof(((struct omx_pkt_msg *)NULL)->lib_seqnum));
@@ -888,13 +888,16 @@ omx__partner_cleanup(struct omx_endpoint *ep, struct omx__partner *partner, int 
    * Drop early fragments from the partner early queue.
    */
   count = 0;
-  omx__foreach_partner_early_packet_safe(partner, early, next_early) {
-    omx___dequeue_partner_early_packet(early);
+  early = TAILQ_FIRST(&partner->early_recv_q);
+  while (early) {
+    next_early = TAILQ_NEXT(early, partner_elt);
+    TAILQ_REMOVE(&partner->early_recv_q, early, partner_elt);
     omx__debug_printf(CONNECT, ep, "Dropping early fragment %p\n", early);
 
     omx_free_ep(ep, early->data);
     omx_free_ep(ep, early);
     count++;
+    early = next_early;
   }
   if (count)
     omx__verbose_printf(ep, "Dropped %d early received packets from partner\n", count);

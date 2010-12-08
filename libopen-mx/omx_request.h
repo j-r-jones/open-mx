@@ -375,41 +375,4 @@ list_for_each_entry(req, head, generic.partner_elt)
 #define omx__foreach_partner_request_safe(head, req, next)	\
 list_for_each_entry_safe(req, next, head, generic.partner_elt)
 
-/*****************************************
- * Partner early packets queue management
- */
-
-static inline void
-omx___dequeue_partner_early_packet(struct omx__early_packet *early)
-{
-  list_del(&early->partner_elt);
-}
-
-static inline struct omx__early_packet *
-omx__first_partner_early_packet(const struct omx__partner *partner)
-{
-  return list_first_entry(&partner->early_recv_q, struct omx__early_packet, partner_elt);
-}
-
-static inline struct omx__early_packet *
-omx__last_partner_early_packet(const struct omx__partner *partner)
-{
-  return list_last_entry(&partner->early_recv_q, struct omx__early_packet, partner_elt);
-}
-
-static inline int
-omx__empty_partner_early_packet_queue(const struct omx__partner *partner)
-{
-  return list_empty(&partner->early_recv_q);
-}
-
-#define omx__foreach_partner_early_packet(partner, early)	\
-list_for_each_entry(early, &partner->early_recv_q, partner_elt)
-
-#define omx__foreach_partner_early_packet_safe(partner, early, next)	\
-list_for_each_entry_safe(early, next, &partner->early_recv_q, partner_elt)
-
-#define omx__foreach_partner_early_packet_reverse(partner, early)	\
-list_for_each_entry_reverse(early, &partner->early_recv_q, partner_elt)
-
 #endif /* __omx_request_h__ */

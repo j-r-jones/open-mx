@@ -790,10 +790,13 @@ omx__destroy_requests_on_close(struct omx_endpoint *ep)
       continue;
 
     /* free early packets */
-    omx__foreach_partner_early_packet_safe(partner, early, next_early) {
-      omx___dequeue_partner_early_packet(early);
+    early = TAILQ_FIRST(&partner->early_recv_q);
+    while (early) {
+      next_early = TAILQ_NEXT(early, partner_elt);
+      TAILQ_REMOVE(&partner->early_recv_q, early, partner_elt);
       omx_free_ep(ep, early->data);
       omx_free_ep(ep, early);
+      early = next_early;
     }
 
     /* free throttling requests */
