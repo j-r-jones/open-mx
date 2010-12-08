@@ -153,7 +153,7 @@ struct omx__partner {
 
   /* throttling state */
   uint32_t throttling_sends_nr;
-  struct list_head endpoint_throttling_partners_elt;
+  TAILQ_ENTRY(omx__partner) endpoint_throttling_partners_elt;
 
   /* seqnum of the next send */
   omx__seqnum_t next_send_seq;
@@ -326,7 +326,7 @@ struct omx_endpoint {
   uint64_t last_partners_acking_jiffies;
   TAILQ_HEAD(omx__partners_to_ack_immediate_list, omx__partner) partners_to_ack_immediate_list;
   TAILQ_HEAD(omx__partners_to_ack_delayed_list, omx__partner) partners_to_ack_delayed_list;
-  struct list_head throttling_partners_list;
+  TAILQ_HEAD(omx__throttling_partners_list, omx__partner) throttling_partners_list;
 
   LIST_HEAD(omx__sleeper_list, omx__sleeper) sleepers;
 

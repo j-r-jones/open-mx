@@ -188,7 +188,7 @@ omx__check_endpoint_desc(struct omx_endpoint * ep)
 			ep->board_info.ifacename, ep->board_info.hostname, ep->endpoint_index);
   }
 
-  list_for_each_entry(partner, &ep->throttling_partners_list, endpoint_throttling_partners_elt)
+  TAILQ_FOREACH(partner, &ep->throttling_partners_list, endpoint_throttling_partners_elt)
     omx__verbose_printf(ep, "Partner not acking enough, throttling %d send requests\n", partner->throttling_sends_nr);
 }
 

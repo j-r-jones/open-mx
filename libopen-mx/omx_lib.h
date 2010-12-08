@@ -258,7 +258,7 @@ omx__mark_partner_throttling(struct omx_endpoint *ep,
 			     struct omx__partner *partner)
 {
   if (!partner->throttling_sends_nr++)
-    list_add_tail(&partner->endpoint_throttling_partners_elt, &ep->throttling_partners_list);
+    TAILQ_INSERT_TAIL(&ep->throttling_partners_list, partner, endpoint_throttling_partners_elt);
 }
 
 static inline void
@@ -267,7 +267,7 @@ omx__update_partner_throttling(struct omx_endpoint *ep,
 			       int nr)
 {
   if (nr && !(partner->throttling_sends_nr -= nr))
-    list_del(&partner->endpoint_throttling_partners_elt);
+    TAILQ_REMOVE(&ep->throttling_partners_list, partner, endpoint_throttling_partners_elt);
 }
 
 static inline int
