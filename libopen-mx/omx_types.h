@@ -25,7 +25,6 @@
 #include <sys/queue.h>
 
 #include "omx_io.h"
-#include "omx_list.h"
 #include "omx_threads.h"
 
 /*****************
@@ -70,6 +69,11 @@ struct omx__large_region_map {
     } region;
   } * array;
 };
+
+TAILQ_HEAD(omx__req_q, omx__generic_request); /* request queue, when queueing by the queue_elt field */
+TAILQ_HEAD(omx__done_req_q, omx__generic_request); /* request queue, when queueing by the done_elt field */
+TAILQ_HEAD(omx__ctxid_req_q, omx__generic_request); /* request queue, when queueing by the ctxid_elt field */
+TAILQ_HEAD(omx__partner_req_q, omx__generic_request); /* request queue, when queueing by the partner_elt field */
 
 typedef uint16_t omx__seqnum_t;
 /* 14 bits for sequence numbers */
@@ -140,13 +144,13 @@ struct omx__partner {
   uint32_t last_recv_acknum;
 
   /* list of non-acked request (queued by their partner_elt) */
-  struct list_head non_acked_req_q;
+  struct omx__partner_req_q non_acked_req_q;
   /* pending connect requests (queued by their partner_elt) */
-  struct list_head connect_req_q;
+  struct omx__partner_req_q connect_req_q;
   /* list of request matched but not entirely received (queued by their partner_elt) */
-  struct list_head partial_medium_recv_req_q;
+  struct omx__partner_req_q partial_medium_recv_req_q;
   /* delayed send because of throttling (too many acks missing) (queued by their partner_elt) */
-  struct list_head need_seqnum_send_req_q;
+  struct omx__partner_req_q need_seqnum_send_req_q;
 
   /* early packets (queued by their partner_elt) */
   TAILQ_HEAD(omx__early_recv_q, omx__early_packet) early_recv_q;
@@ -273,49 +277,49 @@ struct omx_endpoint {
   /* global queues that contain all ctxid queues */
   struct {
     /* done requests (queued by their done_elt) */
-    struct list_head done_req_q;
+    struct omx__done_req_q done_req_q;
     /* unexpected receive, may be partial (queued by their queue_elt) */
-    struct list_head unexp_req_q;
+    struct omx__req_q unexp_req_q;
   } anyctxid;
 
   /* context id array for multiplexed queues */
   struct {
     /* unexpected receive, may be partial (queued by their ctxid_elt, only if there are multiple ctxids) */
-    struct list_head unexp_req_q;
+    struct omx__ctxid_req_q unexp_req_q;
     /* posted non-matched receive (queued by their queue_elt) */
     /* (we could queue by the ctxid_elt but we would need another recv_req_q to ensure conservation of matter) */
-    struct list_head recv_req_q;
+    struct omx__req_q recv_req_q;
 
     /* done requests (queued by their ctxid_elt, only if there are multiple ctxids) */
-    struct list_head done_req_q;
+    struct omx__ctxid_req_q done_req_q;
   } * ctxid;
 
   /* non multiplexed queues */
   /* SEND req with state = NEED_RESOURCES (queued by their queue_elt) */
-  struct list_head need_resources_send_req_q;
+  struct omx__req_q need_resources_send_req_q;
   /* SEND MEDIUMSQ req with state = DRIVER_MEDIUMSQ_SENDING (queued by their queue_elt) */
-  struct list_head driver_mediumsq_sending_req_q;
+  struct omx__req_q driver_mediumsq_sending_req_q;
   /* SEND LARGE req with state = NEED_REPLY and already acked (queued by their queue_elt) */
-  struct list_head large_send_need_reply_req_q;
+  struct omx__req_q large_send_need_reply_req_q;
   /* RECV_LARGE req with state = DRIVER_PULLING (queued by their queue_elt) */
-  struct list_head driver_pulling_req_q;
+  struct omx__req_q driver_pulling_req_q;
   /* any connect request that needs to be resent, thus NEED_REPLY (queued by their queue_elt) */
-  struct list_head connect_req_q;
+  struct omx__req_q connect_req_q;
   /* any send request that needs to be resent, thus NEED_ACK, and is not DRIVER_MEDIUMSQ_SENDING (queued by their queue_elt) */
-  struct list_head non_acked_req_q;
+  struct omx__req_q non_acked_req_q;
   /* send to self waiting for the matching (queued by their queue_elt) */
-  struct list_head unexp_self_send_req_q;
+  struct omx__req_q unexp_self_send_req_q;
 
 #ifdef OMX_LIB_DEBUG
   /* some debug queues so that a request queue_elt is always queued somewhere */
   /* RECV MEDIUM req with state = PARTIAL (queued by their queue_elt) */
-  struct list_head partial_medium_recv_req_q;
+  struct omx__req_q partial_medium_recv_req_q;
   /* SEND req with state = NEED_SEQNUM (queued by their queue_elt) */
-  struct list_head need_seqnum_send_req_q;
+  struct omx__req_q need_seqnum_send_req_q;
   /* any request with state == DONE (done for real, not early, not zombie) (queued by their queue_elt) */
-  struct list_head really_done_req_q;
+  struct omx__req_q really_done_req_q;
   /* internal DONE requests (synchronous connect) (queued by their queue_elt) */
-  struct list_head internal_done_req_q;
+  struct omx__req_q internal_done_req_q;
 #endif
 
   struct omx__sendq_map sendq_map;
@@ -441,13 +445,13 @@ enum omx__request_state {
 
 struct omx__generic_request {
   /* main queue elt, linked to one of the endpoint queues */
-  struct list_head queue_elt;
+  TAILQ_ENTRY(omx__generic_request) queue_elt;
   /* done queue elt, queued to the endpoint main doneq when ready to be completed */
-  struct list_head done_elt;
+  TAILQ_ENTRY(omx__generic_request) done_elt;
   /* queue for specific ctxid elt, queued to an endpoint ctxid doneq when ready to be completed */
-  struct list_head ctxid_elt;
+  TAILQ_ENTRY(omx__generic_request) ctxid_elt;
   /* partner specific queue elt, either for partial receive, or for non-acked request (cannot be both) */
-  struct list_head partner_elt;
+  TAILQ_ENTRY(omx__generic_request) partner_elt;
 
   struct omx__partner * partner;
   enum omx__request_type type;

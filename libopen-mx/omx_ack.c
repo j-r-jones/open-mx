@@ -101,14 +101,14 @@ omx__handle_ack(struct omx_endpoint *ep,
 		      (unsigned) new_acks, (unsigned) missing_acks);
 
   } else {
-    union omx_request *req, *next;
+    union omx_request *req;
 
     omx__debug_printf(ACK, ep, "marking seqnums up to %d (#%d) as acked (jiffies %lld)\n",
 		      (unsigned) OMX__SEQNUM(ack_before - 1),
 		      (unsigned) OMX__SESNUM_SHIFTED(ack_before - 1),
 		      (unsigned long long) omx__driver_desc->jiffies);
 
-    omx__foreach_partner_request_safe(&partner->non_acked_req_q, req, next) {
+    omx__foreach_partner_request_safe(&partner->non_acked_req_q, req) {
       /* take care of the seqnum wrap around here too */
       omx__seqnum_t req_index = OMX__SEQNUM(req->generic.send_seqnum - partner->next_acked_send_seq);
 
@@ -123,9 +123,9 @@ omx__handle_ack(struct omx_endpoint *ep,
       omx__debug_printf(ACK, ep, "marking req with seqnum %x (#%d) as acked\n",
 			(unsigned) OMX__SEQNUM(req->generic.send_seqnum),
 			(unsigned) OMX__SESNUM_SHIFTED(req->generic.send_seqnum));
-      omx___dequeue_partner_request(req);
+      omx__dequeue_partner_request(&partner->non_acked_req_q, req);
       omx__mark_request_acked(ep, req, OMX_SUCCESS);
-    }
+    } omx__foreach_partner_request_safe_end();
 
     partner->next_acked_send_seq = ack_before;
 
@@ -192,11 +192,11 @@ omx__handle_nack(struct omx_endpoint *ep,
       break;
 
     if (nack_index == req_index) {
-      omx___dequeue_partner_request(req);
+      omx__dequeue_partner_request(&partner->non_acked_req_q, req);
       omx__mark_request_acked(ep, req, status);
       return;
     }
-  }
+  } omx__foreach_partner_request_end();
 
  try_connect_req:
 

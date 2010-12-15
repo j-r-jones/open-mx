@@ -72,7 +72,7 @@ omx__dump_request(const char *prefix, const union omx_request *req)
 }
 
 static void
-omx__dump_req_q(const char * name, const struct list_head *head)
+omx__dump_req_q(const char * name, const struct omx__req_q *head)
 {
   union omx_request *req;
   int count;
@@ -84,14 +84,33 @@ omx__dump_req_q(const char * name, const struct list_head *head)
   omx__foreach_request(head, req) {
     omx__dump_request("    ", req);
     count++;
-  }
+  } omx__foreach_request_end();
 
   if (omx__globals.debug_signal_level > 1) printf("   Total: ");
   printf("%d requests\n", count);
 }
 
 static void
-omx__dump_req_ctxidq(const char * name, const struct list_head *head, int max, int offset)
+omx__dump_req_doneq(const char * name, const struct omx__done_req_q *head)
+{
+  union omx_request *req;
+  int count;
+
+  printf("  %s: ", name);
+  if (omx__globals.debug_signal_level > 1) printf("\n");
+
+  count = 0;
+  omx__foreach_done_anyctxid_request(head, req) {
+    omx__dump_request("    ", req);
+    count++;
+  } omx__foreach_done_anyctxid_request_end();
+
+  if (omx__globals.debug_signal_level > 1) printf("   Total: ");
+  printf("%d requests\n", count);
+}
+
+static void
+omx__dump_req_ctxidq(const char * name, const struct omx__ctxid_req_q *head, int max, int offset)
 {
   union omx_request *req;
   int i, count;
@@ -101,10 +120,10 @@ omx__dump_req_ctxidq(const char * name, const struct list_head *head, int max, i
 
   count = 0;
   for(i=0; i<max; i++) {
-    omx__foreach_request(head+i*offset, req) {
+    omx__foreach_ctxid_request(head+i*offset, req) {
       omx__dump_request("    ", req);
       count++;
-    }
+    } omx__foreach_ctxid_request_end();
   }
 
   if (omx__globals.debug_signal_level > 1) printf("   Total: ");
@@ -112,7 +131,7 @@ omx__dump_req_ctxidq(const char * name, const struct list_head *head, int max, i
 }
 
 static void
-omx__dump_partner_req_q(const char * name, const struct list_head *head)
+omx__dump_partner_req_q(const char * name, const struct omx__partner_req_q *head)
 {
   union omx_request *req;
   int count;
@@ -124,7 +143,7 @@ omx__dump_partner_req_q(const char * name, const struct list_head *head)
   omx__foreach_partner_request(head, req) {
     omx__dump_request("      ", req);
     count++;
-  }
+  } omx__foreach_partner_request_end();
 
   if (omx__globals.debug_signal_level > 1) printf("     Total: ");
   printf("%d requests\n", count);
@@ -186,15 +205,17 @@ omx__dump_endpoint(struct omx_endpoint *ep, void *data)
   }
   printf("   Total %d partners excluding myself\n", count);
 
+#if 0
   if (unlikely(HAS_CTXIDS(ep))) {
     omx__dump_req_ctxidq("Recv                  ", &ep->ctxid[0].recv_req_q, ep->ctxid_max, sizeof(ep->ctxid[0]));
     omx__dump_req_ctxidq("Unexpected            ", &ep->ctxid[0].unexp_req_q, ep->ctxid_max, sizeof(ep->ctxid[0]));
     omx__dump_req_ctxidq("Done                  ", &ep->ctxid[0].done_req_q, ep->ctxid_max, sizeof(ep->ctxid[0]));
   } else {
-    omx__dump_req_q("Recv                  ", &ep->ctxid[0].recv_req_q);
+    omx__dump_req_ctxidq("Recv                  ", &ep->ctxid[0].recv_req_q);
     omx__dump_req_q("Unexpected            ", &ep->anyctxid.unexp_req_q); /* ctxid[0].unexp_req_q unused if no ctxids */
-    omx__dump_req_q("Done                  ", &ep->anyctxid.done_req_q); /* ctxid[0].done_req_q unused if no ctxids */
+    omx__dump_req_doneq("Done                  ", &ep->anyctxid.done_req_q); /* ctxid[0].done_req_q unused if no ctxids */
   }
+#endif
   omx__dump_req_q("Missing resources     ", &ep->need_resources_send_req_q);
   omx__dump_req_q("Driver mediumsq sending ", &ep->driver_mediumsq_sending_req_q);
 #ifdef OMX_LIB_DEBUG

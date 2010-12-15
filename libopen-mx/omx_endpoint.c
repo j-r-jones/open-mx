@@ -559,28 +559,28 @@ omx_open_endpoint(uint32_t board_index, uint32_t endpoint_index, uint32_t key,
   ep->unexp_handler = NULL;
   ep->progression_disabled = 0;
 
-  INIT_LIST_HEAD(&ep->anyctxid.done_req_q);
-  INIT_LIST_HEAD(&ep->anyctxid.unexp_req_q);
+  TAILQ_INIT(&ep->anyctxid.done_req_q);
+  TAILQ_INIT(&ep->anyctxid.unexp_req_q);
 
   for(i=0; i<ep->ctxid_max; i++) {
-    INIT_LIST_HEAD(&ep->ctxid[i].unexp_req_q);
-    INIT_LIST_HEAD(&ep->ctxid[i].recv_req_q);
-    INIT_LIST_HEAD(&ep->ctxid[i].done_req_q);
+    TAILQ_INIT(&ep->ctxid[i].unexp_req_q);
+    TAILQ_INIT(&ep->ctxid[i].recv_req_q);
+    TAILQ_INIT(&ep->ctxid[i].done_req_q);
   }
 
-  INIT_LIST_HEAD(&ep->need_resources_send_req_q);
-  INIT_LIST_HEAD(&ep->driver_mediumsq_sending_req_q);
-  INIT_LIST_HEAD(&ep->large_send_need_reply_req_q);
-  INIT_LIST_HEAD(&ep->driver_pulling_req_q);
-  INIT_LIST_HEAD(&ep->connect_req_q);
-  INIT_LIST_HEAD(&ep->non_acked_req_q);
-  INIT_LIST_HEAD(&ep->unexp_self_send_req_q);
+  TAILQ_INIT(&ep->need_resources_send_req_q);
+  TAILQ_INIT(&ep->driver_mediumsq_sending_req_q);
+  TAILQ_INIT(&ep->large_send_need_reply_req_q);
+  TAILQ_INIT(&ep->driver_pulling_req_q);
+  TAILQ_INIT(&ep->connect_req_q);
+  TAILQ_INIT(&ep->non_acked_req_q);
+  TAILQ_INIT(&ep->unexp_self_send_req_q);
 
 #ifdef OMX_LIB_DEBUG
-  INIT_LIST_HEAD(&ep->partial_medium_recv_req_q);
-  INIT_LIST_HEAD(&ep->need_seqnum_send_req_q);
-  INIT_LIST_HEAD(&ep->really_done_req_q);
-  INIT_LIST_HEAD(&ep->internal_done_req_q);
+  TAILQ_INIT(&ep->partial_medium_recv_req_q);
+  TAILQ_INIT(&ep->need_seqnum_send_req_q);
+  TAILQ_INIT(&ep->really_done_req_q);
+  TAILQ_INIT(&ep->internal_done_req_q);
 #endif
 
   TAILQ_INIT(&ep->partners_to_ack_immediate_list);
@@ -693,9 +693,10 @@ omx__unlink_done_request_on_close(struct omx_endpoint *ep, union omx_request *re
 {
   if ((req->generic.state & OMX_REQUEST_STATE_DONE)
       && !(req->generic.state & OMX_REQUEST_STATE_ZOMBIE)) {
-    list_del(&req->generic.done_elt);
+    uint32_t ctxid = CTXID_FROM_MATCHING(ep, req->generic.status.match_info);
+    TAILQ_REMOVE(&ep->anyctxid.done_req_q, &req->generic, done_elt);
     if (unlikely(HAS_CTXIDS(ep)))
-      list_del(&req->generic.ctxid_elt);
+      TAILQ_REMOVE(&ep->ctxid[ctxid].done_req_q, &req->generic, ctxid_elt);
   }
 }
 
@@ -780,10 +781,11 @@ omx__destroy_unlinked_request_on_close(struct omx_endpoint *ep, union omx_reques
 static void
 omx__destroy_requests_on_close(struct omx_endpoint *ep)
 {
-  union omx_request *req, *next;
+  union omx_request *req;
   struct omx__early_packet *early, *next_early;
   unsigned i;
 
+#if 0
   for(i=0; i<omx__driver_desc->peer_max * omx__driver_desc->endpoint_max; i++) {
     struct omx__partner *partner =  ep->partners[i];
     if (!partner)
@@ -800,8 +802,8 @@ omx__destroy_requests_on_close(struct omx_endpoint *ep)
     }
 
     /* free throttling requests */
-    omx__foreach_partner_request_safe(&partner->need_seqnum_send_req_q, req, next) {
-      omx___dequeue_partner_request(req);
+    omx__foreach_partner_request_safe(&partner->need_seqnum_send_req_q, req) {
+      omx__dequeue_partner_request(&partner->need_seqnum_send_req_q, req);
 #ifdef OMX_LIB_DEBUG
       omx__dequeue_request(&ep->need_seqnum_send_req_q, req);
 #endif
@@ -810,25 +812,25 @@ omx__destroy_requests_on_close(struct omx_endpoint *ep)
     }
 
     /* free non-acked requests */
-    omx__foreach_partner_request_safe(&partner->non_acked_req_q, req, next) {
-      omx___dequeue_partner_request(req);
+    omx__foreach_partner_request_safe(&partner->non_acked_req_q, req) {
+      omx__dequeue_partner_request(&partner->non_acked_req_q, req);
       /* the main request element is always queued when non-acked */
-      omx___dequeue_request(req);
+      omx__dequeue_request(req);
       omx__unlink_done_request_on_close(ep, req);
       omx__destroy_unlinked_request_on_close(ep, req);
     }
 
     /* free connect_req_q requests */
-    omx__foreach_partner_request_safe(&partner->connect_req_q, req, next) {
-      omx___dequeue_partner_request(req);
+    omx__foreach_partner_request_safe(&partner->connect_req_q, req) {
+      omx__dequeue_partner_request(&partner->connect_req_q, req);
       omx__dequeue_request(&ep->connect_req_q, req);
       /* cannot be done */
       omx__destroy_unlinked_request_on_close(ep, req);
     }
 
     /* partial_medium_recv_req_q */
-    omx__foreach_partner_request_safe(&partner->partial_medium_recv_req_q, req, next) {
-      omx___dequeue_partner_request(req);
+    omx__foreach_partner_request_safe(&partner->partial_medium_recv_req_q, req) {
+      omx__dequeue_partner_request(&partner->partial_medium_recv_req_q, req);
       /* cannot be done */
       omx__destroy_unlinked_request_on_close(ep, req);
     }
@@ -844,18 +846,18 @@ omx__destroy_requests_on_close(struct omx_endpoint *ep)
 
   /* free ctxid.recv and ctxid.unexp requests */
   for(i=0; i<ep->ctxid_max; i++) {
-    omx__foreach_request_safe(&ep->ctxid[i].recv_req_q, req, next) {
-      omx___dequeue_request(req);
+    omx__foreach_request_safe(&ep->ctxid[i].recv_req_q, req) {
+      omx__dequeue_request(&ep->ctxid[i].recv_req_q, req);
       /* cannot be done */
       omx__destroy_unlinked_request_on_close(ep, req);
     }
   }
 
   /* free unexp reqs */
-  omx__foreach_request_safe(&ep->anyctxid.unexp_req_q, req, next) {
-    omx___dequeue_request(req);
+  omx__foreach_request_safe(&ep->anyctxid.unexp_req_q, req) {
+    omx__dequeue_request(&ep->anyctxid.unexp_req_q, req);
     if (unlikely(HAS_CTXIDS(ep)))
-      omx___dequeue_ctxid_request(req);
+      omx__dequeue_ctxid_request(&ep->ctxid[ctxid].unexp_req_q, req);
     /* cannot be done */
     omx__destroy_unlinked_request_on_close(ep, req);
   }
@@ -922,6 +924,7 @@ omx__destroy_requests_on_close(struct omx_endpoint *ep)
   /* check really_done_req_q is empty */
   omx__debug_assert(omx__empty_queue(&ep->really_done_req_q));
 #endif
+#endif
 }
 
 /***************************
@@ -930,6 +933,7 @@ omx__destroy_requests_on_close(struct omx_endpoint *ep)
 void
 omx__request_alloc_check(const struct omx_endpoint *ep)
 {
+#if 0
 #ifdef OMX_LIB_DEBUG
   unsigned i, j, nr = 0;
 
@@ -1030,5 +1034,6 @@ omx__request_alloc_check(const struct omx_endpoint *ep)
     omx__verbose_printf(ep, "Found %d requests in queues for %d allocations\n", nr, ep->req_alloc_nr);
   if (nr != ep->req_alloc_nr)
     omx__abort(ep, "%d requests out of %d missing in endpoint queues\n", ep->req_alloc_nr - nr, ep->req_alloc_nr);
+#endif
 #endif
 }

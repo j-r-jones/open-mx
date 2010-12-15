@@ -22,7 +22,6 @@
 #include <stdlib.h>
 
 #include "omx_lib.h"
-#include "omx_list.h"
 
 /*********************
  * Request allocation
@@ -84,106 +83,118 @@ omx__request_alloc_check(const struct omx_endpoint *ep);
  */
 
 static inline void
-omx__enqueue_request(struct list_head *head,
+omx__enqueue_request(struct omx__req_q *head,
 		     union omx_request *req)
 {
-  list_add_tail(&req->generic.queue_elt, head);
+  TAILQ_INSERT_TAIL(head, &req->generic, queue_elt);
 }
 
 static inline void
-omx__requeue_request(struct list_head *head,
+omx__requeue_request(struct omx__req_q *head,
 		     union omx_request *req)
 {
-  list_add(&req->generic.queue_elt, head);
+  TAILQ_INSERT_HEAD(head, &req->generic, queue_elt);
 }
 
 static inline void
-omx___dequeue_request(union omx_request *req)
-{
-  list_del(&req->generic.queue_elt);
-}
-
-static inline void
-omx__dequeue_request(struct list_head *head,
+omx__dequeue_request(struct omx__req_q *head,
 		     union omx_request *req)
 {
 #ifdef OMX_LIB_DEBUG
-  struct list_head *e;
-  list_for_each(e, head)
-    if (req == list_entry(e, union omx_request, generic.queue_elt))
+  struct omx__generic_request *e;
+  TAILQ_FOREACH(e, head, queue_elt)
+    if (&req->generic == e)
       goto found;
 
   omx__abort(NULL, "Failed to find request in queue for dequeueing\n");
 
  found:
 #endif /* OMX_LIB_DEBUG */
-  omx___dequeue_request(req);
+  TAILQ_REMOVE(head, &req->generic, queue_elt);
 }
 
 static inline union omx_request *
-omx__first_request(const struct list_head *head)
+omx__first_request(const struct omx__req_q *head)
 {
-  return list_first_entry(head, union omx_request, generic.queue_elt);
+  return (union omx_request *) TAILQ_FIRST(head);
 }
 
 static inline int
-omx__empty_queue(const struct list_head *head)
+omx__empty_queue(const struct omx__req_q *head)
 {
-  return list_empty(head);
+  return TAILQ_EMPTY(head);
 }
 
 static inline unsigned
-omx__queue_count(const struct list_head *head)
+omx__queue_count(const struct omx__req_q *head)
 {
-  struct list_head *elt;
+  struct omx__generic_request *e;
   unsigned i=0;
-  list_for_each(elt, head)
+  TAILQ_FOREACH(e, head, queue_elt)
     i++;
   return i;
 }
 
-#define omx__foreach_request(head, req)		\
-list_for_each_entry(req, head, generic.queue_elt)
+#define omx__foreach_request(head, req) {    \
+  struct omx__generic_request *_elt;         \
+  TAILQ_FOREACH(_elt, head, queue_elt) {     \
+    req = (union omx_request *) _elt;        \
+    {
+#define omx__foreach_request_end()           \
+    }                                        \
+  }                                          \
+}
 
-#define omx__foreach_request_safe(head, req, next)	\
-list_for_each_entry_safe(req, next, head, generic.queue_elt)
+#define omx__foreach_request_safe(head, req) { \
+  struct omx__generic_request *_elt, *_next;   \
+  _elt = TAILQ_FIRST(head);                    \
+  while (_elt) {                               \
+  _next = TAILQ_NEXT(_elt, queue_elt);         \
+    req =  (union omx_request *) _elt;         \
+    {
+#define omx__foreach_request_safe_end()        \
+    }                                          \
+    _elt = _next;                              \
+  }                                            \
+}
 
 /*********************************
  * Request ctxid queue management
  */
 
 static inline void
-omx__enqueue_ctxid_request(struct list_head *head,
+omx__enqueue_ctxid_request(struct omx__ctxid_req_q *head,
 			   union omx_request *req)
 {
-  list_add_tail(&req->generic.ctxid_elt, head);
+  TAILQ_INSERT_TAIL(head, &req->generic, ctxid_elt);
 }
 
 static inline void
-omx___dequeue_ctxid_request(union omx_request *req)
-{
-  list_del(&req->generic.ctxid_elt);
-}
-
-static inline void
-omx__dequeue_ctxid_request(struct list_head *head,
+omx__dequeue_ctxid_request(struct omx__ctxid_req_q *head,
 			   union omx_request *req)
 {
 #ifdef OMX_LIB_DEBUG
-  struct list_head *e;
-  list_for_each(e, head)
-    if (req == list_entry(e, union omx_request, generic.ctxid_elt))
+  struct omx__generic_request *e;
+  TAILQ_FOREACH(e, head, ctxid_elt)
+    if (&req->generic == e)
       goto found;
 
   omx__abort(NULL, "Failed to find request in ctxid queue for dequeueing\n");
 
  found:
 #endif /* OMX_LIB_DEBUG */
-  omx___dequeue_ctxid_request(req);
+  TAILQ_REMOVE(head, &req->generic, ctxid_elt);
 }
 
-#define omx__foreach_ctxid_request(head, req)	\
-list_for_each_entry(req, head, generic.ctxid_elt)
+#define omx__foreach_ctxid_request(head, req) {    \
+  struct omx__generic_request *_elt;               \
+  TAILQ_FOREACH(_elt, head, ctxid_elt) {           \
+    req = (union omx_request *) _elt;              \
+    {
+#define omx__foreach_ctxid_request_end()           \
+    }                                              \
+  }                                                \
+}
 
 /********************************
  * Done request queue management
@@ -204,9 +215,9 @@ omx__notify_request_done_early(struct omx_endpoint *ep, uint32_t ctxid,
   req->generic.state |= OMX_REQUEST_STATE_DONE;
 
   if (likely(!(req->generic.state & OMX_REQUEST_STATE_ZOMBIE))) {
-    list_add_tail(&req->generic.done_elt, &ep->anyctxid.done_req_q);
+    TAILQ_INSERT_TAIL(&ep->anyctxid.done_req_q, &req->generic, done_elt);
     if (unlikely(HAS_CTXIDS(ep)))
-      list_add_tail(&req->generic.ctxid_elt, &ep->ctxid[ctxid].done_req_q);
+      TAILQ_INSERT_TAIL(&ep->ctxid[ctxid].done_req_q, &req->generic, ctxid_elt);
   }
 
   /*
@@ -238,9 +249,9 @@ omx__notify_request_done(struct omx_endpoint *ep, uint32_t ctxid,
     /* queue the request to the done queue */
     omx__debug_assert(!req->generic.state);
     req->generic.state |= OMX_REQUEST_STATE_DONE;
-    list_add_tail(&req->generic.done_elt, &ep->anyctxid.done_req_q);
+    TAILQ_INSERT_TAIL(&ep->anyctxid.done_req_q, &req->generic, done_elt);
     if (unlikely(HAS_CTXIDS(ep)))
-      list_add_tail(&req->generic.ctxid_elt, &ep->ctxid[ctxid].done_req_q);
+      TAILQ_INSERT_TAIL(&ep->ctxid[ctxid].done_req_q, &req->generic, ctxid_elt);
 #ifdef OMX_LIB_DEBUG
     omx__enqueue_request(&ep->really_done_req_q, req);
 #endif
@@ -257,19 +268,19 @@ static inline void
 omx__dequeue_done_request(struct omx_endpoint *ep,
 			  union omx_request *req)
 {
-#ifdef OMX_LIB_DEBUG
   uint32_t ctxid = CTXID_FROM_MATCHING(ep, req->generic.status.match_info);
-  struct list_head *e;
+#ifdef OMX_LIB_DEBUG
+  struct omx__generic_request *e;
 
-  list_for_each(e, &ep->anyctxid.done_req_q)
-    if (req == list_entry(e, union omx_request, generic.done_elt))
+  TAILQ_FOREACH(e, &ep->anyctxid.done_req_q, done_elt)
+    if (req == (union omx_request *) e)
       goto found2;
   omx__abort(ep, "Failed to find request in anyctxid done queue for dequeueing\n");
  found2:
 
   if (unlikely(HAS_CTXIDS(ep))) {
-    list_for_each(e, &ep->ctxid[ctxid].done_req_q)
-      if (req == list_entry(e, union omx_request, generic.ctxid_elt))
+    TAILQ_FOREACH(e, &ep->ctxid[ctxid].done_req_q, ctxid_elt)
+      if (req == (union omx_request *) e)
 	goto found;
     omx__abort(ep, "Failed to find request in ctxid done queue for dequeueing\n");
   }
@@ -278,36 +289,50 @@ omx__dequeue_done_request(struct omx_endpoint *ep,
   if (req->generic.state == OMX_REQUEST_STATE_DONE)
     omx__dequeue_request(&ep->really_done_req_q, req);
 #endif /* OMX_LIB_DEBUG */
-  list_del(&req->generic.done_elt);
+  TAILQ_REMOVE(&ep->anyctxid.done_req_q, &req->generic, done_elt);
   if (unlikely(HAS_CTXIDS(ep)))
-    list_del(&req->generic.ctxid_elt);
+    TAILQ_REMOVE(&ep->ctxid[ctxid].done_req_q, &req->generic, ctxid_elt);
 }
 
-#define omx__foreach_done_ctxid_request(ep, _ctxid, req)		\
-list_for_each_entry(req, &ep->ctxid[_ctxid].done_req_q, generic.ctxid_elt)
+//#define omx__foreach_done_ctxid_request(ep, _ctxid, req) {	  \
+//  struct omx__generic_request *_elt;				  \
+//  TAILQ_FOREACH(_elt, &ep->ctxid[_ctxid].done_req_q, ctxid_elt) {	\
+//    req = (union omx_request *) _elt;					\
+//    {
+//#define omx__foreach_done_ctxid_request_end()			  \
+//    }								  \
+//  }								  \
+//}
 
-#define omx__foreach_done_anyctxid_request(ep, req)		\
-list_for_each_entry(req, &ep->anyctxid.done_req_q, generic.done_elt)
+#define omx__foreach_done_anyctxid_request(head, _req) { \
+  struct omx__generic_request *_elt;                     \
+  TAILQ_FOREACH(_elt, head, done_elt) {                  \
+    req = (union omx_request *) _elt;                    \
+    {
+#define omx__foreach_done_anyctxid_request_end()         \
+    }                                                    \
+  }                                                      \
+}
 
-#define omx__foreach_done_anyctxid_request_safe(ep, req, next)		\
-list_for_each_entry_safe(req, next, &ep->anyctxid.done_req_q, generic.done_elt)
+//#define omx__foreach_done_anyctxid_request_safe(ep, req, next)	\
+//list_for_each_entry_safe(req, next, &ep->anyctxid.done_req_q, generic.done_elt)
 
 static inline union omx_request *
 omx__first_done_anyctxid_request(const struct omx_endpoint *ep)
 {
-  return list_first_entry(&ep->anyctxid.done_req_q, union omx_request, generic.done_elt);
+  return (union omx_request *) TAILQ_FIRST(&ep->anyctxid.done_req_q);
 }
 
 static inline int
 omx__empty_done_ctxid_queue(const struct omx_endpoint *ep, uint32_t ctxid)
 {
-  return list_empty(&ep->ctxid[ctxid].done_req_q);
+  return TAILQ_EMPTY(&ep->ctxid[ctxid].done_req_q);
 }
 
 static inline int
 omx__empty_done_anyctxid_queue(const struct omx_endpoint *ep)
 {
-  return list_empty(&ep->anyctxid.done_req_q);
+  return TAILQ_EMPTY(&ep->anyctxid.done_req_q);
 }
 
 /****************************
@@ -315,64 +340,75 @@ omx__empty_done_anyctxid_queue(const struct omx_endpoint *ep)
  */
 
 static inline void
-omx__enqueue_partner_request(struct list_head *head,
+omx__enqueue_partner_request(struct omx__partner_req_q *head,
 			     union omx_request *req)
 {
-  list_add_tail(&req->generic.partner_elt, head);
+  TAILQ_INSERT_TAIL(head, &req->generic, partner_elt);
 }
 
 static inline void
-omx___dequeue_partner_request(union omx_request *req)
-{
-  list_del(&req->generic.partner_elt);
-}
-
-static inline void
-omx__dequeue_partner_request(struct list_head *head,
+omx__dequeue_partner_request(struct omx__partner_req_q *head,
 			     union omx_request *req)
 {
 #ifdef OMX_LIB_DEBUG
-  struct list_head *e;
-  list_for_each(e, head)
-    if (req == list_entry(e, union omx_request, generic.partner_elt))
+  struct omx__generic_request *e;
+  TAILQ_FOREACH(e, head, partner_elt)
+    if (&req->generic == e)
       goto found;
 
   omx__abort(NULL, "Failed to find request in partner queue for dequeueing\n");
 
  found:
 #endif /* OMX_LIB_DEBUG */
-  omx___dequeue_partner_request(req);
+  TAILQ_REMOVE(head, &req->generic, partner_elt);
 }
 
 static inline int
-omx__empty_partner_queue(const struct list_head *head)
+omx__empty_partner_queue(const struct omx__partner_req_q *head)
 {
-  return list_empty(head);
+  return TAILQ_EMPTY(head);
 }
 
 static inline union omx_request *
-omx__first_partner_request(const struct list_head *head)
+omx__first_partner_request(const struct omx__partner_req_q *head)
 {
-  return list_first_entry(head, union omx_request, generic.partner_elt);
+  return (union omx_request *) TAILQ_FIRST(head);
 }
 
 static inline union omx_request *
-omx__dequeue_first_partner_request(struct list_head *head)
+omx__dequeue_first_partner_request(struct omx__partner_req_q *head)
  {
-  union omx_request *req;
+  struct omx__generic_request *elt;
 
-  if (list_empty(head))
+  if (TAILQ_EMPTY(head))
     return NULL;
 
-  req = list_first_entry(head, union omx_request, generic.partner_elt);
-  omx___dequeue_partner_request(req);
-  return req;
+  elt = TAILQ_FIRST(head);
+  TAILQ_REMOVE(head, elt, partner_elt);
+  return (union omx_request *) elt;
 }
 
-#define omx__foreach_partner_request(head, req)	\
-list_for_each_entry(req, head, generic.partner_elt)
+#define omx__foreach_partner_request(head, req) {    \
+  struct omx__generic_request *_elt;                 \
+  TAILQ_FOREACH(_elt, head, partner_elt) {           \
+    req = (union omx_request *) _elt;                \
+    {
+#define omx__foreach_partner_request_end()           \
+    }                                                \
+  }                                                  \
+}
 
-#define omx__foreach_partner_request_safe(head, req, next)	\
-list_for_each_entry_safe(req, next, head, generic.partner_elt)
+#define omx__foreach_partner_request_safe(head, req) { \
+  struct omx__generic_request *_elt, *_next;           \
+  _elt = TAILQ_FIRST(head);                            \
+  while (_elt) {                                       \
+  _next = TAILQ_NEXT(_elt, partner_elt);               \
+    req =  (union omx_request *) _elt;                 \
+    {
+#define omx__foreach_partner_request_safe_end()        \
+    }                                                  \
+    _elt = _next;                                      \
+  }                                                    \
+}
 
 #endif /* __omx_request_h__ */
