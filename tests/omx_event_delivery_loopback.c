@@ -18,7 +18,6 @@
 #define OMX_FILTER_KEY 0x12345678
 #define OMX_BID 0
 
-
 #define TIME_DIFF(tv1, tv2)			\
 	((tv2.tv_sec - tv1.tv_sec) * 1000000ULL + (tv2.tv_usec - tv1.tv_usec))
 
@@ -39,7 +38,7 @@ omx__cpubind(hwloc_const_cpuset_t cpuset)
 
 	if (hwloc_set_cpubind(topology, cpuset, HWLOC_CPUBIND_THREAD)) {
 		hwloc_bitmap_asprintf(&str, cpuset);
-		fprintf(stderr, "Couldn't bind to cpuset %s\n", str);
+		fprintf(stderr, "Couldn't bind to cpuset %s (%m)\n", str);
 		free(str);
 		exit(1);
 	}
@@ -67,7 +66,7 @@ omx__gen_sender (const struct data *data)
 	/* synchronize with receiver */
 	omx_isend(data->ep, NULL, 0, addr, 0, NULL, &req);
 	omx_wait(data->ep, &req, &status, &result, OMX_TIMEOUT_INFINITE);
-	
+
 	for (i = 0; i < OMX_NUM_REQS - 1; i++)
 		omx_isend(data->ep, NULL, 0, addr, 0, NULL, NULL);
 	omx_isend(data->ep, NULL, 0, addr, 0, NULL, &req);
@@ -115,14 +114,14 @@ main (int argc, char *argv[])
 
 	if (argc >= 2 && !strcmp(argv[1], "-s"))
 		sender = 1;
-	
+
 	hwloc_topology_init(&topology);
 	hwloc_topology_load(topology);
 
 	nb_socket =  hwloc_get_nbobjs_by_type (topology, HWLOC_OBJ_SOCKET);
 
 	if (nb_socket < 2) {
-		fprintf(stderr, "%s: Not sockets enough, at least 2 are required\n", argv[0]);
+		fprintf(stderr, "%s: Not enough sockets, at least 2 are required\n", argv[0]);
 		goto out_with_topo;
 	}
 
@@ -134,7 +133,7 @@ main (int argc, char *argv[])
 
 	assert (cpuset && data);
 
-	printf("Found %d socket(s) and %d core(s) on the remote machine\n", nb_socket, nb_core);
+	printf("Found %d sockets and %d cores on the remote machine\n", nb_socket, nb_core);
 
 	/* Distribute senders on the first socket */
 	obj = hwloc_get_next_obj_by_type (topology, HWLOC_OBJ_SOCKET, NULL);
@@ -153,7 +152,6 @@ main (int argc, char *argv[])
 #endif
 
 	ret = omx_init ();
-	
 	if (ret != OMX_SUCCESS) {
 		fprintf (stderr, "%s: Failed to initialize (%s)\n", argv[0],
 			 omx_strerror (ret));
@@ -162,10 +160,10 @@ main (int argc, char *argv[])
 
 	begin = sender ? 0 : core_per_sock;
 	end   = sender ? core_per_sock : core_per_sock * 2;
-	
+
 	for (i = begin; i < end; i++) {
 		ret = omx_open_endpoint (OMX_BID, i, OMX_FILTER_KEY, NULL, 0, &data[i].ep);
-		
+
 		if (unlikely(ret != OMX_SUCCESS)) {
 			fprintf (stderr, "%s: Failed to open endpoint #%d (%s)\n", argv[0], i,
 				 omx_strerror (ret));
@@ -175,26 +173,26 @@ main (int argc, char *argv[])
 		data[i].cpuset = cpuset[i];
 		hwloc_bitmap_singlify(cpuset[i]);
 	}
-	
+
 	ret = omx_hostname_to_nic_id("localhost", &dest_addr);
-	
+
 	if (ret != OMX_SUCCESS) {
-		fprintf(stderr, "Cannot find peer name localhost\n");
+		fprintf(stderr, "%s: Cannot find peer name localhost\n", argv[0]);
 		goto out_with_ep;
 	}
-	
+
 	/* FIXME: Don't use it (private) ! */
 	ret = omx__get_board_info (data[sender ? 0 : core_per_sock].ep, sender ? 0 : core_per_sock, &board_info);
-	
+
 	if (ret != OMX_SUCCESS) {
 		fprintf (stderr, "%s: Failed to read board #0, %s\n", argv[0],
 			 omx_strerror (ret));
 		goto out_with_ep;
 	}
-	
+
 	/* FIXME: Don't use it (private) ! */
 	omx__board_addr_sprintf (board_addr_str, board_info.addr);
-	
+
 	printf ("%s (board #0 name %s addr %s)\n",
 		board_info.hostname, board_info.ifacename, board_addr_str);
 
