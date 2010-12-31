@@ -1,8 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#include <hwloc.h>
 #include <unistd.h>
+
+#include <hwloc.h>
+#ifndef HWLOC_BITMAP_H
+#define hwloc_bitmap_free hwloc_cpuset_free
+#define hwloc_bitmap_singlify hwloc_cpuset_singlify
+#define hwloc_bitmap_asprintf hwloc_cpuset_asprintf
+#endif
 
 #include "open-mx.h"
 #include "omx_io.h"
@@ -32,7 +38,7 @@ omx__cpubind(hwloc_const_cpuset_t cpuset)
 	char *str;
 
 	if (hwloc_set_cpubind(topology, cpuset, HWLOC_CPUBIND_THREAD)) {
-		hwloc_cpuset_asprintf(&str, cpuset);
+		hwloc_bitmap_asprintf(&str, cpuset);
 		fprintf(stderr, "Couldn't bind to cpuset %s\n", str);
 		free(str);
 		exit(1);
@@ -132,13 +138,19 @@ main (int argc, char *argv[])
 
 	/* Distribute senders on the first socket */
 	obj = hwloc_get_next_obj_by_type (topology, HWLOC_OBJ_SOCKET, NULL);
-
+#if HWLOC_API_VERSION >= 0x10100
+	hwloc_distribute(topology, obj, cpuset, core_per_sock, INT_MAX);
+#else
 	hwloc_distribute(topology, obj, cpuset, core_per_sock);
-	
+#endif
+
 	/* Then distribute receivers on the second socket */
 	obj = hwloc_get_next_obj_by_type (topology, HWLOC_OBJ_SOCKET, obj);
-
+#if HWLOC_API_VERSION >= 0x10100
+	hwloc_distribute(topology, obj, cpuset + core_per_sock, core_per_sock, INT_MAX);
+#else
 	hwloc_distribute(topology, obj, cpuset + core_per_sock, core_per_sock);
+#endif
 
 	ret = omx_init ();
 	
@@ -161,7 +173,7 @@ main (int argc, char *argv[])
 		}
 
 		data[i].cpuset = cpuset[i];
-		hwloc_cpuset_singlify(cpuset[i]);
+		hwloc_bitmap_singlify(cpuset[i]);
 	}
 	
 	ret = omx_hostname_to_nic_id("localhost", &dest_addr);
@@ -205,7 +217,7 @@ main (int argc, char *argv[])
 		omx_close_endpoint (data[i].ep);
  out_with_free:
 	for (i = 0; i < 8; i++)
-		hwloc_cpuset_free(cpuset[i]);
+		hwloc_bitmap_free(cpuset[i]);
 	free(cpuset);
 	free(data);
  out_with_topo:
