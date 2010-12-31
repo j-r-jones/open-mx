@@ -361,7 +361,7 @@ omx_ioctl_user_region_create(struct omx_endpoint * endpoint,
 
 	spin_lock(&endpoint->user_regions_lock);
 
-	if (unlikely(endpoint->user_regions[cmd.id] != NULL)) {
+	if (unlikely(rcu_access_pointer(endpoint->user_regions[cmd.id]) != NULL)) {
 		printk(KERN_ERR "Open-MX: Cannot create busy region %d\n", cmd.id);
 		ret = -EBUSY;
 		spin_unlock(&endpoint->user_regions_lock);
@@ -370,6 +370,7 @@ omx_ioctl_user_region_create(struct omx_endpoint * endpoint,
 
 	region->endpoint = endpoint;
 	region->id = cmd.id;
+	region->dirty = 0;
 	rcu_assign_pointer(endpoint->user_regions[cmd.id], region);
 
 	spin_unlock(&endpoint->user_regions_lock);
@@ -451,7 +452,7 @@ omx_ioctl_user_region_destroy(struct omx_endpoint * endpoint,
 
 	spin_lock(&endpoint->user_regions_lock);
 
-	region = endpoint->user_regions[cmd.id];
+	region = rcu_dereference_protected(endpoint->user_regions[cmd.id], 1);
 	if (unlikely(!region)) {
 		printk(KERN_ERR "Open-MX: Cannot destroy unexisting region %d\n", cmd.id);
 		goto out_with_endpoint_lock;
@@ -531,6 +532,8 @@ omx_invalidate_region(const struct omx_endpoint *endpoint,
 		for(i=0; i<region->nr_segments; i++) {
 			struct omx_user_region_segment * segment = &region->segments[i];
 			for(j=0; j<segment->pinned_pages; j++) {
+				if (region->dirty)
+					set_page_dirty_lock(segment->pages[j]);
 				put_page(segment->pages[j]);
 				segment->pinned_pages = 0;
 			}
@@ -653,7 +656,7 @@ omx_endpoint_user_regions_exit(struct omx_endpoint * endpoint)
 	spin_lock(&endpoint->user_regions_lock);
 
 	for(i=0; i<OMX_USER_REGION_MAX; i++) {
-		region = endpoint->user_regions[i];
+		region = rcu_dereference_protected(endpoint->user_regions[i], 1);
 		if (!region)
 			continue;
 
