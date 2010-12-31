@@ -28,7 +28,7 @@ launchersdir	= $(testdir)/launchers
 
 test_PROGRAMS		= omx_cancel_test omx_cmd_bench omx_loopback_test omx_many		\
 			  omx_perf omx_rails omx_rcache_test omx_reg omx_truncated_test		\
-			  omx_unexp_handler_test omx_unexp_test omx_vect_test omx_event_delivery_loopback
+			  omx_unexp_handler_test omx_unexp_test omx_vect_test
 
 dist_helpers_SCRIPTS	= helpers/omx_test_double_app helpers/omx_test_battery
 nodist_helpers_SCRIPTS	= helpers/omx_test_launcher
@@ -37,13 +37,15 @@ TESTS			= $(FINAL_TEST_LIST)
 
 omx_reg_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)
 omx_cmd_bench_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)
-omx_event_delivery_loopback_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)
-
-omx_event_delivery_loopback_CFLAGS	= $(HWLOC_CFLAGS)
 
 LDADD = $(abs_top_builddir)/libopen-mx/$(DEFAULT_LIBDIR)/libopen-mx.la
 
-omx_event_delivery_loopback_LDADD	= $(HWLOC_LIBS) $(LDADD)
+if OMX_HAVE_HWLOC
+  test_PROGRAMS		+= omx_event_delivery_loopback
+  omx_event_delivery_loopback_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)
+  omx_event_delivery_loopback_CFLAGS	= $(HWLOC_CFLAGS)
+  omx_event_delivery_loopback_LDADD	= $(HWLOC_LIBS) $(LDADD)
+endif
 
 install-data-hook:
 	@mkdir -p $(DESTDIR)$(launchersdir)
