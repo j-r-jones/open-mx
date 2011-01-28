@@ -26,9 +26,10 @@ batterydir	= $(testdir)/battery
 helpersdir	= $(testdir)/helpers
 launchersdir	= $(testdir)/launchers
 
-test_PROGRAMS		= omx_cancel_test omx_cmd_bench omx_loopback_test omx_many		\
-			  omx_perf omx_rails omx_rcache_test omx_reg omx_truncated_test		\
-			  omx_unexp_handler_test omx_unexp_test omx_vect_test
+test_PROGRAMS		= omx_cancel_test omx_cmd_bench omx_loopback_test omx_many	\
+			  omx_perf omx_rails omx_rcache_test omx_reg omx_truncated_test	\
+			  omx_unexp_handler_test omx_unexp_test omx_vect_test		\
+			  omx_multithread_wait_any
 
 dist_helpers_SCRIPTS	= helpers/omx_test_double_app helpers/omx_test_battery
 nodist_helpers_SCRIPTS	= helpers/omx_test_launcher
@@ -39,6 +40,9 @@ omx_reg_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)
 omx_cmd_bench_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)
 
 LDADD = $(abs_top_builddir)/libopen-mx/$(DEFAULT_LIBDIR)/libopen-mx.la
+
+omx_multithread_wait_any_CFLAGS	= $(HWLOC_CFLAGS)
+omx_multithread_wait_any_LDADD	= $(HWLOC_LIBS) -lpthread $(LDADD)
 
 if OMX_HAVE_HWLOC
   test_PROGRAMS		+= omx_event_delivery_loopback

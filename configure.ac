@@ -519,7 +519,7 @@ AC_SUBST(OMX_RAW_DEVICE_MODE)
 
 # Test configuration
 # Do not use multiline for the both following variables
-TEST_LIST='loopback_native loopback_shared loopback_self unexpected unexpected_with_ctxids unexpected_handler truncated wait_any cancel wakeup multirails vect_native vect_shared vect_self pingpong_native pingpong_shared randomloop'
+TEST_LIST='loopback_native loopback_shared loopback_self unexpected unexpected_with_ctxids unexpected_handler truncated wait_any cancel wakeup multirails monothread_wait_any multithread_wait_any vect_native vect_shared vect_self pingpong_native pingpong_shared randomloop'
 
 BATTERY_LIST='loopback misc vect pingpong'
 
@@ -533,12 +533,12 @@ AC_SUBST(BATTERY_LIST)
 
 
 
+
 # External dependencies
 ########################
-
 AC_ARG_ENABLE(hwloc,
-        [AS_HELP_STRING([--disable-hwloc], [disable hwloc in the user-space tools])],
-        enable_hwloc=$enableval, enable_hwloc=yes)
+	      [AS_HELP_STRING([--disable-hwloc], [disable hwloc in the user-space tools])],
+	      enable_hwloc=$enableval, enable_hwloc=yes)
 if test x$enable_hwloc = xyes; then
   PKG_CHECK_MODULES(HWLOC, hwloc >= 1.0, :, enable_hwloc=no)
   if test x$enable_hwloc = xyes; then
@@ -562,6 +562,7 @@ AM_CONDITIONAL(OMX_HAVE_HWLOC, test x$enable_hwloc = xyes)
 if test x$enable_hwloc = xyes; then
   AC_DEFINE(OMX_HAVE_HWLOC, 1, [Define to enable hwloc in user-space tools])
 fi
+
 
 
 
