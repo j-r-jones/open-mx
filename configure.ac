@@ -532,6 +532,54 @@ AC_SUBST(BATTERY_LIST)
 
 
 
+# External dependencies
+########################
+AC_ARG_ENABLE(hwloc,
+	      [AS_HELP_STRING([--disable-hwloc], [disable hwloc in the user-space tools])],
+	      enable_hwloc=$enableval, enable_hwloc=yes)
+if test x$enable_hwloc = xyes; then
+  PKG_CHECK_MODULES(HWLOC, hwloc >= 1.0, :, enable_hwloc=no)
+  if test x$enable_hwloc = xyes; then
+    # use pkg-config result to check that headers and libs are usable
+    # (in case it's a cross compilation environment)
+    omx_cflags_save="$CFLAGS"
+    omx_libs_save="$LIBS"
+    CFLAGS="$CFLAGS $HWLOC_CFLAGS"
+    LIBS="$LIBS $HWLOC_LIBS"
+    AC_CHECK_FUNC(hwloc_topology_init, :, enable_hwloc=no)
+    CFLAGS="$omx_cflags_save"
+    LIBS="$omx_libs_save"
+    if test x$enable_hwloc = xno; then
+      # clear pkg-config result if hwloc isn't actually usable
+      HWLOC_CFLAGS=
+      HWLOC_LIBS=
+    fi
+  fi
+fi
+AM_CONDITIONAL(OMX_HAVE_HWLOC, test x$enable_hwloc = xyes)
+if test x$enable_hwloc = xyes; then
+  AC_DEFINE(OMX_HAVE_HWLOC, 1, [Define to enable hwloc in user-space tools])
+fi
+
+AC_PATH_PROG(modprobe_path, modprobe)
+AC_PATH_PROG(modinfo_path, modinfo)
+AC_PATH_PROG(insmod_path, insmod)
+
+if test x$modprobe_path = x ; then
+   AC_MSG_ERROR([No modprobe executable found])
+fi
+if test x$modinfo_path = x ; then
+   AC_MSG_ERROR([No modinfo executable found])
+fi
+if test x$insmod_path, = x ; then
+   AC_MSG_ERROR([No insmod executable found])
+fi
+
+AC_SUBST(MODPROBE_PATH, $modprobe_path)
+AC_SUBST(MODINFO_PATH, $modinfo_path)
+AC_SUBST(INSMOD_PATH, $insmod_path)
+
+
 # Here is the list of configured files
 AC_CONFIG_FILES(Makefile
 		driver/linux/Makefile
