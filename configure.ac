@@ -598,9 +598,20 @@ fi
 ])
 
 
+<<<<<<< HEAD
 AC_PATH_PROG(modprobe_path, modprobe)
 AC_PATH_PROG(modinfo_path, modinfo)
 AC_PATH_PROG(insmod_path, insmod)
+=======
+AC_PATH_PROG(modprobe_path, modprobe, /sbin/modprobe, dnl
+	     [$PATH$PATH_SEPARATOR/usr/sbin$PATH_SEPARATOR/sbin])
+AC_PATH_PROG(modinfo_path, modinfo, /sbin/modprobe, dnl
+	     [$PATH$PATH_SEPARATOR/usr/sbin$PATH_SEPARATOR/sbin])
+AC_PATH_PROG(insmod_path, insmod, /sbin/modprobe, dnl
+	     [$PATH$PATH_SEPARATOR/usr/sbin$PATH_SEPARATOR/sbin])
+AC_PATH_PROG(rmmod_path, rmmod, /sbin/rmmod, dnl
+	     [$PATH$PATH_SEPARATOR/usr/sbin$PATH_SEPARATOR/sbin])
+>>>>>>> 26bc3f8... Also detect rmmod path
 
 if test x$modprobe_path = x ; then
    AC_MSG_ERROR([No modprobe executable found])
@@ -611,10 +622,14 @@ fi
 if test x$insmod_path, = x ; then
    AC_MSG_ERROR([No insmod executable found])
 fi
+if test x$rmmod_path, = x ; then
+   AC_MSG_ERROR([No rmmod executable found])
+fi
 
 AC_SUBST(MODPROBE_PATH, $modprobe_path)
 AC_SUBST(MODINFO_PATH, $modinfo_path)
 AC_SUBST(INSMOD_PATH, $insmod_path)
+AC_SUBST(RMMOD_PATH, $rmmod_path)
 
 
 # Here is the list of configured files
