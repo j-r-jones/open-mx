@@ -21,6 +21,15 @@ AC_INIT(Open-MX,
 	open-mx,
 	http://open-mx.org)
 
+AC_MSG_ERROR([
+ **************************************************************
+ The 1.3.x branch is no longer maintained. It misses many fixes
+ and will not receive further patches. Please use the 1.4.x
+ branch or later instead.
+ If you notice any regression, please report it to
+   open-mx-devel@lists.gforge.inria.fr
+ **************************************************************])
+
 AC_PREREQ(2.65)
 
 AC_PREFIX_DEFAULT(/opt/open-mx)
