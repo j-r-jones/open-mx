@@ -537,7 +537,7 @@ omx__connect_complete(struct omx_endpoint *ep,
   /* move iconnect request to the done queue */
   omx__notify_request_done(ep, ctxid, req);
 
-  omx__printf (ep, "DEBUG omx_connect_complete: %d", req->generic.state);
+  omx__printf (ep, "DEBUG omx_connect_complete: %d\n", req->generic.state);
 }
 
 /*
