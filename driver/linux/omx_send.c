@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -637,12 +636,8 @@ omx_ioctl_send_mediumsq_frag(struct omx_endpoint * endpoint,
 	OMX_HTON_8(medium_n->src_endpoint, endpoint->endpoint_index);
 	OMX_HTON_8(medium_n->dst_endpoint, cmd.dest_endpoint);
 	OMX_HTON_8(medium_n->ptype, OMX_PKT_TYPE_MEDIUM);
-#ifdef OMX_MX_WIRE_COMPAT
-	OMX_HTON_16(medium_n->length, cmd.msg_length);
-	OMX_HTON_8(medium_n->frag_pipeline, cmd.frag_pipeline);
-#else
+	/* wirecompat case removed, copyrights != INRIA */
 	OMX_HTON_32(medium_n->length, cmd.msg_length);
-#endif
 	OMX_HTON_16(medium_n->lib_seqnum, cmd.seqnum);
 	OMX_HTON_16(medium_n->lib_piggyack, cmd.piggyack);
 	OMX_HTON_32(medium_n->session, cmd.session_id);
@@ -773,12 +768,8 @@ omx_ioctl_send_mediumva(struct omx_endpoint * endpoint,
 		OMX_HTON_8(medium_n->src_endpoint, endpoint->endpoint_index);
 		OMX_HTON_8(medium_n->dst_endpoint, cmd.dest_endpoint);
 		OMX_HTON_8(medium_n->ptype, OMX_PKT_TYPE_MEDIUM);
-#ifdef OMX_MX_WIRE_COMPAT
-		OMX_HTON_16(medium_n->length, msg_length);
-		OMX_HTON_8(medium_n->frag_pipeline, OMX_MEDIUM_FRAG_LENGTH_SHIFT);
-#else
+		/* wirecompat case removed, copyrights != INRIA */
 		OMX_HTON_32(medium_n->length, msg_length);
-#endif
 		OMX_HTON_16(medium_n->lib_seqnum, cmd.seqnum);
 		OMX_HTON_16(medium_n->lib_piggyack, cmd.piggyack);
 		OMX_HTON_32(medium_n->session, cmd.session_id);

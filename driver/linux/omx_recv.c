@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -517,12 +516,8 @@ omx_recv_medium_frag(struct omx_iface * iface,
 	event.match_info = OMX_NTOH_MATCH_INFO(medium_n);
 	event.seqnum = lib_seqnum;
 	event.piggyack = lib_piggyack;
-#ifdef OMX_MX_WIRE_COMPAT
-	event.specific.medium_frag.msg_length = OMX_NTOH_16(medium_n->length);
-	event.specific.medium_frag.frag_pipeline = OMX_NTOH_8(medium_n->frag_pipeline);
-#else
+	/* wirecompat case removed, copyrights != INRIA */
 	event.specific.medium_frag.msg_length = OMX_NTOH_32(medium_n->length);
-#endif
 	event.specific.medium_frag.frag_length = frag_length;
 	event.specific.medium_frag.frag_seqnum = OMX_NTOH_8(medium_n->frag_seqnum);
 	event.specific.medium_frag.checksum = OMX_NTOH_16(medium_n->checksum);

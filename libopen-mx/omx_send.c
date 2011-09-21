@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -465,13 +464,13 @@ omx__post_isend_mediumsq(struct omx_endpoint *ep,
       unsigned chunk = remaining > frag_max ? frag_max : remaining;
       medium_param->frag_length = chunk;
       medium_param->frag_seqnum = i;
-      medium_param->sendq_offset = sendq_index[i] << OMX_SENDQ_ENTRY_SHIFT;
+      /* sendq_offset update removed, copyrights != INRIA */
       omx__debug_printf(MEDIUM, ep, "sending mediumsq seqnum %d length %d of total %ld\n",
 			i, chunk, (unsigned long) length);
 
       /* copy the data in the sendq only once */
       if (likely(!req->generic.resends))
-	memcpy(ep->sendq + (sendq_index[i] << OMX_SENDQ_ENTRY_SHIFT), data + offset, chunk);
+	/* memcpy removed, copyrights != INRIA */
 
       err = ioctl(ep->fd, OMX_CMD_SEND_MEDIUMSQ_FRAG, medium_param);
       if (unlikely(err < 0)) {
@@ -480,7 +479,7 @@ omx__post_isend_mediumsq(struct omx_endpoint *ep,
 	  unsigned j;
 	  for(j=i+1; j<frags_nr; i++) {
 	    unsigned chunk = remaining > frag_max ? frag_max : remaining;
-	    memcpy(ep->sendq + (sendq_index[j] << OMX_SENDQ_ENTRY_SHIFT), data + offset, chunk);
+	    /* memcpy removed, copyrights != INRIA */
 	    remaining -= chunk;
 	    offset += chunk;
 	  }
@@ -500,15 +499,13 @@ omx__post_isend_mediumsq(struct omx_endpoint *ep,
       unsigned chunk = remaining > frag_max ? frag_max : remaining;
       medium_param->frag_length = chunk;
       medium_param->frag_seqnum = i;
-      medium_param->sendq_offset = sendq_index[i] << OMX_SENDQ_ENTRY_SHIFT;
+      /* sendq_offset update removed, copyrights != INRIA */
       omx__debug_printf(MEDIUM, ep, "sending mediumsq seqnum %d length %d of total %ld\n",
 			i, chunk, (unsigned long) length);
 
       /* copy the data in the sendq only once */
       if (likely(!req->generic.resends))
-	omx_continue_partial_copy_from_segments(ep, ep->sendq + (sendq_index[i] << OMX_SENDQ_ENTRY_SHIFT),
-						&req->send.segs, chunk,
-						&state);
+	/* copy removed, copyrights != INRIA */
 
       err = ioctl(ep->fd, OMX_CMD_SEND_MEDIUMSQ_FRAG, medium_param);
       if (unlikely(err < 0)) {
@@ -517,9 +514,7 @@ omx__post_isend_mediumsq(struct omx_endpoint *ep,
 	  unsigned j;
 	  for(j=i+1; j<frags_nr; i++) {
 	    unsigned chunk = remaining > frag_max ? frag_max : remaining;
-	    omx_continue_partial_copy_from_segments(ep, ep->sendq + (sendq_index[j] << OMX_SENDQ_ENTRY_SHIFT),
-						    &req->send.segs, chunk,
-						    &state);
+	    /* copy removed, copyrights != INRIA */
 	    remaining -= chunk;
 	  }
 	}
@@ -628,9 +623,7 @@ omx__alloc_setup_isend_mediumsq(struct omx_endpoint *ep,
   medium_param->dest_endpoint = partner->endpoint_index;
   medium_param->shared = omx__partner_localization_shared(partner);
   medium_param->match_info = req->generic.status.match_info;
-#ifdef OMX_MX_WIRE_COMPAT
-  medium_param->frag_pipeline = req->send.specific.mediumsq.frag_pipeline;
-#endif
+  /* wirecompat removed, copyrights != INRIA */
   medium_param->msg_length = length;
   medium_param->session_id = partner->true_session_id;
 
@@ -670,18 +663,13 @@ omx__submit_isend_medium(struct omx_endpoint *ep,
   BUILD_BUG_ON(OMX__MX_MEDIUM_MSG_LENGTH_MAX > OMX_MEDIUM_FRAG_LENGTH_MAX * OMX_MEDIUM_FRAGS_MAX);
 
   if (use_sendq) {
-    int frag_max = OMX_MEDIUM_FRAG_LENGTH_MAX;
-    int frags_nr;
+    /* most of req->send.specific.mediumsq removed, copyrights != INRIA */
 
     req->generic.type = OMX_REQUEST_TYPE_SEND_MEDIUMSQ;
     req->generic.missing_resources = OMX_REQUEST_SEND_MEDIUMSQ_RESOURCES;
 
-    frags_nr = (length+frag_max-1) / frag_max;
     omx__debug_assert(frags_nr <= OMX_MEDIUM_FRAGS_MAX); /* for the sendq_index array above */
     req->send.specific.mediumsq.frags_nr = frags_nr;
-#ifdef OMX_MX_WIRE_COMPAT
-    req->send.specific.mediumsq.frag_pipeline = OMX_MEDIUM_FRAG_LENGTH_SHIFT;
-#endif
   } else {
     req->generic.type = OMX_REQUEST_TYPE_SEND_MEDIUMVA;
     /* no resources needed */

@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -490,9 +489,7 @@ union omx_request {
 	struct omx_cmd_send_mediumsq_frag send_mediumsq_frag_ioctl_param;
 	uint32_t frags_nr;
 	uint32_t frags_pending_nr;
-#ifdef OMX_MX_WIRE_COMPAT
-	unsigned frag_pipeline;
-#endif
+	/* OMX_MX_WIRE_COMPAT case removed, copyrights != INRIA */
 	omx_sendq_map_index_t sendq_map_index[OMX_MEDIUM_FRAGS_MAX];
       } mediumsq;
       struct {

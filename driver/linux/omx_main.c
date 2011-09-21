@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2011
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -260,9 +259,8 @@ omx_get_driver_string(unsigned int *lenp)
 	*(tmp-1) = '\n'; /* change the ending space into a linebreak */
 
 	len = snprintf(tmp, OMX_DRIVER_STRING_LEN-buflen,
-		       " WireSpecs: %s EtherType=0x%lx MTU>=%ld\n",
-		       omx_driver_userdesc->abi_config & OMX_ABI_CONFIG_WIRECOMPAT
-		       ? "WireCompatible" : "NoWireCompat",
+		       " WireSpecs: EtherType=0x%lx MTU>=%ld\n",
+			/* wirecompat removed, copyrights != INRIA */
 		       (unsigned long) ETH_P_OMX, (unsigned long) OMX_MTU);
 	tmp += len;
 	buflen += len;

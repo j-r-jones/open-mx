@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -115,7 +114,7 @@ struct omx_cmd_user_segment {
 	/* 16 */
 };
 
-#define OMX_ABI_CONFIG_WIRECOMPAT		(1<<0)
+/* wirecompat removed, copyrights != INRIA */
 
 static inline __pure uint32_t
 omx_get_abi_config(void) {
@@ -129,7 +128,7 @@ omx_get_abi_config(void) {
 /* driver desc */
 struct omx_driver_desc {
 	uint32_t abi_version;
-	uint32_t abi_config;
+	/* field removed, copyrights != INRIA */
 	/* 8 */
 	uint32_t features;
 	uint32_t board_max;

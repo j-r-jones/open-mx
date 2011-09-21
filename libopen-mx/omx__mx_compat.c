@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -871,41 +870,4 @@ mx_buffered(mx_endpoint_t endpoint, mx_request_t *request, uint32_t timeout, uin
   return MX_BAD_BAD_BAD;
 }
 
-/****************************************
- * Internal MX symbols (for OpenMPI 1.3)
- */
-
-#include "mx_io.h"
-
-/* internal MX symbols that must be exported for OpenMPI 1.3 */
-extern mx_return_t mx_open_board(int i, mx_endpt_handle_t *handle);
-extern mx_return_t mx__get_mapper_state(mx_endpt_handle_t handle, mx_mapper_state_t *p);
-extern int mx__regcache_clean(void *ptr, size_t len);
-
-mx_return_t
-mx_open_board(int i, mx_endpt_handle_t *handle)
-{
-  return MX_SUCCESS;
-}
-
-mx_return_t
-mx__get_mapper_state(mx_endpt_handle_t handle, mx_mapper_state_t *p)
-{
-  omx_return_t ret;
-  uint64_t mapper_mac;
-  ret = omx__driver_get_peer_table_state(NULL, &(p->map_version), NULL, &mapper_mac);
-  p->mapper_mac[0] = (mapper_mac >> 40) & 0xff;
-  p->mapper_mac[1] = (mapper_mac >> 32) & 0xff;
-  p->mapper_mac[2] = (mapper_mac >> 24) & 0xff;
-  p->mapper_mac[3] = (mapper_mac >> 16) & 0xff;
-  p->mapper_mac[4] = (mapper_mac >> 8) & 0xff;
-  p->mapper_mac[5] = (mapper_mac >> 0) & 0xff;
-  return ret;
-}
-
-int
-mx__regcache_clean(void *ptr, size_t len)
-{
-  omx__regcache_clean(ptr, len);
-  return 0;
-}
+/* internal mx symbols (for OpenMPI 1.3) removed, copyrights != INRIA */

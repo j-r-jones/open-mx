@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -382,11 +381,7 @@ struct omx_pkt_medium_frag { /* similar to MX's pkt_msg_t + pkt_frame_t, contain
 	/* 24 */
 	uint16_t frag_length;
 	uint8_t frag_seqnum;
-#ifdef OMX_MX_WIRE_COMPAT
-	uint8_t frag_pipeline;
-#else
-	uint8_t pad1;
-#endif
+	/* wirecompat removed, copyrights != INRIA */
 	uint16_t checksum;
 	uint16_t pad2;
 	/* 32 */

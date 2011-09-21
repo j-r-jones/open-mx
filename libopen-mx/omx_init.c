@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -208,12 +207,7 @@ omx__init_api(int app_api)
     goto out_with_fd;
   }
 
-  if (omx__driver_desc->abi_config != omx_get_abi_config()) {
-    ret = omx__error(OMX_BAD_LIB_ABI,
-		     "Comparing library (ABI config 0x%x) with driver (ABI config 0x%x)",
-		     omx_get_abi_config(), omx__driver_desc->abi_config);
-    goto out_with_fd;
-  }
+  /* abi_config check removed, copyrights != INRIA */
 
   if (omx__driver_desc->mtu != OMX_MTU) {
     ret = omx__error(OMX_BAD_LIB_ABI,
@@ -484,10 +478,7 @@ omx__init_comms(void)
   }
 
   omx__globals.regcache = omx__globals.parallel_regcache;
-  if (omx__driver_desc->features & OMX_DRIVER_FEATURE_PIN_INVALIDATE) {
-    omx__globals.regcache = 1;
-    omx__verbose_printf(NULL, "Enabling regcache by default since driver reports pin-invalidate support\n");
-  }
+  /* OMX_DRIVER_FEATURE_PIN_INVALIDATE case removed, copyrights != INRIA */
   env = getenv("OMX_RCACHE");
 #ifdef OMX_MX_ABI_COMPAT
   if (!omx__globals.ignore_mx_env && !env) {

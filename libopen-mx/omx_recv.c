@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -328,9 +327,7 @@ omx__process_recv_medium_frag(struct omx_endpoint *ep, struct omx__partner *part
   unsigned long xfer_chunk;
   int new = (req->recv.specific.medium.frags_received_mask == 0);
 
-  omx__debug_printf(MEDIUM, ep, "got a medium frag seqnum %d length %d offset %d of total %d\n",
-		    (unsigned) frag_seqnum, (unsigned) chunk,
-		    (unsigned) offset, (unsigned) msg_length);
+  /* debug message removed, copyrights != INRIA */
 
   if (chunk != OMX_MEDIUM_FRAG_LENGTH_MAX) {
     /* only the last packet can be less than the max fragment size */

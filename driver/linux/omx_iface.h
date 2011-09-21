@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2009
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -116,14 +115,10 @@ extern void omx__raw_detach_iface_locked(struct omx_iface *iface);
 extern struct omx_iface * omx_shared_fake_iface;
 
 /* counters */
-#if defined(OMX_DRIVER_COUNTERS)
-#  define omx_counter_inc(iface, index)		\
+#define omx_counter_inc(iface, index)		\
 do {						\
 	iface->counters[OMX_COUNTER_##index]++;	\
 } while (0)
-#else
-#  define omx_counter_inc(iface, index) (void) iface /* to silence unused warning */
-#endif /* OMX_DRIVER_COUNTERS */
 
 #endif /* __omx_iface_h__ */
 

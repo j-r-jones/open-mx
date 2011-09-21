@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2010
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -720,13 +719,5 @@ omx__process_recv_notify(struct omx_endpoint *ep, struct omx__partner *partner,
     omx__send_complete(ep, req, OMX_SUCCESS);
   }
 
-#ifdef OMX_MX_WIRE_COMPAT
-  /* MX < 1.2.5 needs an immediate ack for notify since it cannot mark
-   * large recv as zombies.
-   * But we can only do that if all previous seqnum are ready to be acked
-   * too, which means next_frag == next_match.
-   */
-  if (partner->next_frag_recv_seq == partner->next_match_recv_seq)
-    omx__mark_partner_need_ack_immediate(ep, partner);
-#endif
+  /* OMX_MX_WIRE_COMPAT case removed, copyrights != INRIA */
 }

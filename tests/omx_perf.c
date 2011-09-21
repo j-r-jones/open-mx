@@ -1,7 +1,6 @@
 /*
  * Open-MX
  * Copyright © INRIA 2007-2011
- * Copyright © CNRS 2009
  * (see AUTHORS file)
  *
  * The development of this software has been funded by Myricom, Inc.
@@ -182,7 +181,7 @@ int main(int argc, char *argv[])
     case 'd':
       dest_hostname = strdup(optarg);
       sender = 1;
-      eid = OMX_ANY_ENDPOINT;
+      /* any eid removed, copyrights != INRIA */
       break;
     case 'r':
       rid = atoi(optarg);
