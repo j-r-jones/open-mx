@@ -634,6 +634,7 @@ omx_open_endpoint(uint32_t board_index, uint32_t endpoint_index, uint32_t key,
   /* nothing to do for detach, close will do it */
  out_with_fd:
   close(fd);
+  ep->fd = -1;
  out_with_ep:
   omx__lock_destroy(&ep->lock);
   omx__cond_destroy(&ep->in_handler_cond);
@@ -688,6 +689,7 @@ omx_close_endpoint(struct omx_endpoint *ep)
   omx__exit_ep_malloc(ep);
   /* nothing to do for detach, close will do it */
   close(ep->fd);
+  ep->fd = -1;
   omx__lock_destroy(&ep->lock);
   omx__cond_destroy(&ep->in_handler_cond);
   omx__lock(&omx__global_lock);

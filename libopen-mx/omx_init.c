@@ -239,6 +239,7 @@ omx__init_api(int app_api)
 
  out_with_fd:
   close(omx__globals.control_fd);
+  omx__globals.control_fd = -1;
  out_with_message_prefix:
   omx_free(omx__globals.message_prefix);
 
@@ -559,6 +560,7 @@ omx_finalize(void)
   /* FIXME: check that no endpoint is still open */
 
   close(omx__globals.control_fd);
+  omx__globals.control_fd = -1;
   omx_free(omx__globals.message_prefix);
   omx__globals.initialized = 0;
 
