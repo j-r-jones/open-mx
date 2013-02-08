@@ -210,7 +210,7 @@ typedef struct work_struct * omx_work_struct_data_t;
 #elif defined OMX_HAVE_DMA_ENGINE_API
 
 /* kernel >= 2.6.29 with nice DMA engine suport */
-#if defined CONFIG_DMA_ENGINE || defined CONFIG_DMA_ENGINE_V3
+#ifdef CONFIG_NET_DMA
 #define OMX_HAVE_DMA_ENGINE 1
 #include <linux/dmaengine.h>
 #define omx_dmaengine_get() dmaengine_get()
