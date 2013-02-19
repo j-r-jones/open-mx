@@ -1,4 +1,4 @@
-Open-MX 1.5.3 ()
+Open-MX 1.5.3 (February 19th 2013)
 ==================================
 
 Improvements from previous release:
@@ -6,7 +6,6 @@ Improvements from previous release:
   Thanks to Sébastien Varrette for reporting the problem.
 * Fix build with 3.5+ kernels where kmap_atomic changed.
 * Fix debug driver build with recent kernels (-O0 is not supported).
-
 
 Caveats:
 * No background progression or retransmission is done if the application
