@@ -441,7 +441,8 @@ omx_shared_send_mediumsq_frag(struct omx_endpoint *src_endpoint,
 #ifdef OMX_HAVE_DMA_ENGINE
 	if (dma_chan) {
 		if (dma_cookie > 0) {
-			while (dma_async_memcpy_complete(dma_chan, dma_cookie, NULL, NULL) == DMA_IN_PROGRESS);
+			while (dma_async_memcpy_complete(dma_chan, dma_cookie, NULL, NULL) == DMA_IN_PROGRESS)
+				cpu_relax();
 			omx_counter_inc(omx_shared_fake_iface, SHARED_DMA_MEDIUM_FRAG);
 		}
 		omx_dma_chan_put(dma_chan);

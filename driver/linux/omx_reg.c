@@ -1755,7 +1755,8 @@ omx_dma_copy_between_user_regions(struct omx_user_region * src_region, unsigned 
 	if (dma_chan) {
 		if (dma_last_cookie > 0) {
 			dma_async_memcpy_issue_pending(dma_chan);
-			while (dma_async_memcpy_complete(dma_chan, dma_last_cookie, NULL, NULL) == DMA_IN_PROGRESS);
+			while (dma_async_memcpy_complete(dma_chan, dma_last_cookie, NULL, NULL) == DMA_IN_PROGRESS)
+				cpu_relax();
 		}
 		omx_dma_chan_put(dma_chan);
 	}

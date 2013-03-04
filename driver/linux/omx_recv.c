@@ -543,7 +543,8 @@ omx_recv_medium_frag(struct omx_iface * iface,
 #ifdef OMX_HAVE_DMA_ENGINE
 	if (dma_chan) {
 		if (dma_cookie > 0)
-			while (dma_async_memcpy_complete(dma_chan, dma_cookie, NULL, NULL) == DMA_IN_PROGRESS);
+			while (dma_async_memcpy_complete(dma_chan, dma_cookie, NULL, NULL) == DMA_IN_PROGRESS)
+				cpu_relax();
 		omx_dma_chan_put(dma_chan);
 	}
 #endif

@@ -1501,7 +1501,8 @@ omx_pull_handle_wait_dma_completions(struct omx_pull_handle *handle)
 	/* Push remaining copies to the DMA hardware */
 	dma_async_memcpy_issue_pending(dma_chan);
 
-	while (omx__pull_handle_poll_dma_completions(dma_chan, handle->dma_copy_last_cookie, &handle->dma_copy_skb_queue) == DMA_IN_PROGRESS);
+	while (omx__pull_handle_poll_dma_completions(dma_chan, handle->dma_copy_last_cookie, &handle->dma_copy_skb_queue) == DMA_IN_PROGRESS)
+		cpu_relax();
 
 	/* All copies already done, it's safe to free early-copied skbs now */
 	dprintk(DMA, "all cookies are ready\n");
