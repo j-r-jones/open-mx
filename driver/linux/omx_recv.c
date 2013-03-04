@@ -497,7 +497,7 @@ omx_recv_medium_frag(struct omx_iface * iface,
 									    skb, hdr_len,
 									    pages, recvq_offset & (~PAGE_MASK) /* 0 if multiple pages */,
 									    frag_length);
-			dma_async_memcpy_issue_pending(dma_chan);
+			dma_async_issue_pending(dma_chan);
 			if (remaining_copy) {
 				printk(KERN_INFO "Open-MX: DMA copy of medium frag partially submitted, %d/%d remaining\n",
 				       remaining_copy, (unsigned) frag_length);
@@ -543,7 +543,7 @@ omx_recv_medium_frag(struct omx_iface * iface,
 #ifdef OMX_HAVE_DMA_ENGINE
 	if (dma_chan) {
 		if (dma_cookie > 0)
-			while (dma_async_memcpy_complete(dma_chan, dma_cookie, NULL, NULL) == DMA_IN_PROGRESS)
+			while (dma_async_is_tx_complete(dma_chan, dma_cookie, NULL, NULL) == DMA_IN_PROGRESS)
 				cpu_relax();
 		omx_dma_chan_put(dma_chan);
 	}

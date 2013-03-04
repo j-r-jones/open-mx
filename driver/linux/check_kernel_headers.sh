@@ -278,6 +278,26 @@ else
   echo no
 fi
 
+# dma_async_memcpy_issue_pending removed in 3.9
+# dma_async_issue_pending added in the meantime
+echo -n "  checking (in kernel headers) dma_async_issue_pending availability ... "
+if grep dma_async_issue_pending ${LINUX_HDR}/include/linux/dmaengine.h > /dev/null ; then
+  echo "#define OMX_HAVE_DMA_ASYNC_ISSUE_PENDING 1" >> ${TMP_CHECKS_NAME}
+  echo yes
+else
+  echo no
+fi
+
+# dma_async_memcpy_complete removed in 3.9
+# dma_async_is_tx_complete added in the meantime
+echo -n "  checking (in kernel headers) dma_async_is_tx_complete availability ... "
+if grep dma_async_is_tx_complete ${LINUX_HDR}/include/linux/dmaengine.h > /dev/null ; then
+  echo "#define OMX_HAVE_DMA_ASYNC_IS_TX_COMPLETE 1" >> ${TMP_CHECKS_NAME}
+  echo yes
+else
+  echo no
+fi
+
 # add the footer
 echo "" >> ${TMP_CHECKS_NAME}
 echo "#endif /* __omx_checks_h__ */" >> ${TMP_CHECKS_NAME}

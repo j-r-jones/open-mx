@@ -316,6 +316,20 @@ static inline struct page *skb_frag_page(const skb_frag_t *frag) { return frag->
 #define omx_kunmap_atomic(x,type) kunmap_atomic(x)
 #endif
 
+/* dma_async_memcpy_issue_pending removed in 3.9
+ * dma_async_issue_pending added in the meantime
+ */
+#ifndef OMX_HAVE_DMA_ASYNC_ISSUE_PENDING
+#define dma_async_issue_pending dma_async_memcpy_issue_pending
+#endif
+
+/* dma_async_memcpy_complete removed in 3.9
+ * dma_async_is_tx_complete added in the meantime
+ */
+#ifndef OMX_HAVE_DMA_ASYNC_IS_TX_COMPLETE
+#define dma_async_is_tx_complete dma_async_memcpy_complete
+#endif
+
 #endif /* __omx_hal_h__ */
 
 /*
