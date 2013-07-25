@@ -35,6 +35,7 @@ dist_helpers_SCRIPTS	= helpers/omx_test_double_app helpers/omx_test_battery
 nodist_helpers_SCRIPTS	= helpers/omx_test_launcher
 
 TESTS			= $(FINAL_TEST_LIST)
+TEST_EXTENSIONS		= .sh
 
 omx_reg_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)
 omx_cmd_bench_CPPFLAGS	= -I$(abs_top_srcdir)/libopen-mx $(AM_CPPFLAGS)

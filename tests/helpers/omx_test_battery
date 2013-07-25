@@ -112,30 +112,30 @@ batteryname=`basename $0`
 
 case $batteryname in
     loopback)
-	do_test 'loopback with native networking'	$launcherdir/loopback_native
-	do_test 'loopback with shared networking'	$launcherdir/loopback_shared
-	do_test 'loopback with self networking'		$launcherdir/loopback_self
+	do_test 'loopback with native networking'	$launcherdir/loopback_native.sh
+	do_test 'loopback with shared networking'	$launcherdir/loopback_shared.sh
+	do_test 'loopback with self networking'		$launcherdir/loopback_self.sh
 	;;
     misc)
-	do_test 'unexpected'				$launcherdir/unexpected
-	do_test 'unexpected with ctxids'		$launcherdir/unexpected_with_ctxids
-	do_test 'unexpected handler'			$launcherdir/unexpected_handler
-	do_test 'truncated'				$launcherdir/truncated
-	do_test 'wait_any'				$launcherdir/wait_any
-	do_test 'cancel'				$launcherdir/cancel
-	do_test 'wakeup'				$launcherdir/wakeup
-	do_test 'addr_context'				$launcherdir/addr_context
-	do_test 'multirails'				$launcherdir/multirails
-	do_test 'monothread_wait_any'			$launcherdir/monothread_wait_any
-	do_test 'multithread_wait_any'			$launcherdir/multithread_wait_any
-	do_test 'multithread_ep'			$launcherdir/multithread_ep
+	do_test 'unexpected'				$launcherdir/unexpected.sh
+	do_test 'unexpected with ctxids'		$launcherdir/unexpected_with_ctxids.sh
+	do_test 'unexpected handler'			$launcherdir/unexpected_handler.sh
+	do_test 'truncated'				$launcherdir/truncated.sh
+	do_test 'wait_any'				$launcherdir/wait_any.sh
+	do_test 'cancel'				$launcherdir/cancel.sh
+	do_test 'wakeup'				$launcherdir/wakeup.sh
+	do_test 'addr_context'				$launcherdir/addr_context.sh
+	do_test 'multirails'				$launcherdir/multirails.sh
+	do_test 'monothread_wait_any'			$launcherdir/monothread_wait_any.sh
+	do_test 'multithread_wait_any'			$launcherdir/multithread_wait_any.sh
+	do_test 'multithread_ep'			$launcherdir/multithread_ep.sh
 	;;
     vect)
-	do_test 'vectorials with native networking'	$launcherdir/vect_native
-	do_test 'vectorials with shared networking'	$launcherdir/vect_shared
-	do_test 'vectorials with self networking'	$launcherdir/vect_self
+	do_test 'vectorials with native networking'	$launcherdir/vect_native.sh
+	do_test 'vectorials with shared networking'	$launcherdir/vect_shared.sh
+	do_test 'vectorials with self networking'	$launcherdir/vect_self.sh
 	;;
     pingpong)
-	do_test 'pingpong with native networking'	$launcherdir/pingpong_native
-	do_test 'pingpong with shared networking'	$launcherdir/pingpong_shared
+	do_test 'pingpong with native networking'	$launcherdir/pingpong_native.sh
+	do_test 'pingpong with shared networking'	$launcherdir/pingpong_shared.sh
 esac

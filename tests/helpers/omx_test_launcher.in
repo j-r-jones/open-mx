@@ -64,36 +64,36 @@ process_omx_test_verbose_env
 testname=`basename $0`
 
 case $testname in
-    loopback_native)		$TESTS_DIR/omx_loopback_test ;;
-    loopback_shared)		$TESTS_DIR/omx_loopback_test -s ;;
-    loopback_self)		$TESTS_DIR/omx_loopback_test -S ;;
-    unexpected)			$TESTS_DIR/omx_unexp_test ;;
-    unexpected_with_ctxids)	OMX_CTXIDS=10,10 $TESTS_DIR/omx_unexp_test ;;
-    unexpected_handler)		$TESTS_DIR/omx_unexp_handler_test ;;
-    truncated)			$TESTS_DIR/omx_truncated_test ;;
-    wait_any)			OMX_DISABLED_SHARED=1 $helperdir/omx_test_double_app \
+    loopback_native.sh)		$TESTS_DIR/omx_loopback_test ;;
+    loopback_shared.sh)		$TESTS_DIR/omx_loopback_test -s ;;
+    loopback_self.sh)		$TESTS_DIR/omx_loopback_test -S ;;
+    unexpected.sh)		$TESTS_DIR/omx_unexp_test ;;
+    unexpected_with_ctxids.sh)	OMX_CTXIDS=10,10 $TESTS_DIR/omx_unexp_test ;;
+    unexpected_handler.sh)	$TESTS_DIR/omx_unexp_handler_test ;;
+    truncated.sh)		$TESTS_DIR/omx_truncated_test ;;
+    wait_any.sh)		OMX_DISABLED_SHARED=1 $helperdir/omx_test_double_app \
 				$MXTESTS_DIR/mx_wait_any_test ;;
-    cancel)			$helperdir/omx_test_double_app -s $TESTS_DIR/omx_cancel_test ;;
-    wakeup)			test x$threadsafe = x0 || \
+    cancel.sh)			$helperdir/omx_test_double_app -s $TESTS_DIR/omx_cancel_test ;;
+    wakeup.sh)			test x$threadsafe = x0 || \
 				$helperdir/omx_test_double_app -s $MXTESTS_DIR/mx_wakeup_test ;;
-    addr_context)		$helperdir/omx_test_double_app $TESTS_DIR/omx_endpoint_addr_context_test ;;
-    multirails)			$helperdir/omx_test_double_app $TESTS_DIR/omx_rails -R 3 -- \
+    addr_context.sh)		$helperdir/omx_test_double_app $TESTS_DIR/omx_endpoint_addr_context_test ;;
+    multirails.sh)		$helperdir/omx_test_double_app $TESTS_DIR/omx_rails -R 3 -- \
 				-d localhost:0,localhost:1,localhost:2 ;;
-    monothread_wait_any)	test x$threadsafe = x0 || \
+    monothread_wait_any.sh)	test x$threadsafe = x0 || \
 				$helperdir/omx_test_double_app $TESTS_DIR/omx_multithread_wait_any -p 1 -t 1 -- \
 				-d localhost ;;
-    multithread_wait_any)	test x$threadsafe = x0 || \
+    multithread_wait_any.sh)	test x$threadsafe = x0 || \
 				$helperdir/omx_test_double_app $TESTS_DIR/omx_multithread_wait_any -- \
 				-d localhost ;;
-    multithread_ep)		test x$threadsafe = x0 || \
+    multithread_ep.sh)		test x$threadsafe = x0 || \
 				$TESTS_DIR/omx_multithread_ep_test ;;
-    vect_native)		$TESTS_DIR/omx_vect_test ;;
-    vect_shared)		$TESTS_DIR/omx_vect_test -s ;;
-    vect_self)			$TESTS_DIR/omx_vect_test -S ;;
-    pingpong_native)		OMX_DISABLE_SHARED=1 $helperdir/omx_test_double_app \
+    vect_native.sh)		$TESTS_DIR/omx_vect_test ;;
+    vect_shared.sh)		$TESTS_DIR/omx_vect_test -s ;;
+    vect_self.sh)		$TESTS_DIR/omx_vect_test -S ;;
+    pingpong_native.sh)		OMX_DISABLE_SHARED=1 $helperdir/omx_test_double_app \
 				$TESTS_DIR/omx_perf -y ;;
-    pingpong_shared)		$helperdir/omx_test_double_app $TESTS_DIR/omx_perf -y ;;
-    randomloop)
+    pingpong_shared.sh)		$helperdir/omx_test_double_app $TESTS_DIR/omx_perf -y ;;
+    randomloop.sh)
 	$MXTESTS_DIR/mx_msg_loop -R -P 11 & _pid=$!
 	sleep 20
 	echo "Killing the program now that it ran for 20s..."
