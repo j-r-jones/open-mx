@@ -145,7 +145,7 @@ fi
 
 # skb got mac/network/transport headers in 2.6.22
 echo -n "  checking (in kernel headers) skb headers availability ... "
-if grep "sk_buff_data_t.*mac_header;" ${LINUX_HDR}/include/linux/skbuff.h > /dev/null ; then
+if egrep "(__u16|sk_buff_data_t)[ 	]+mac_header;" ${LINUX_HDR}/include/linux/skbuff.h > /dev/null ; then
   echo "#define OMX_HAVE_SKB_HEADERS 1" >> ${TMP_CHECKS_NAME}
   echo yes
 else
