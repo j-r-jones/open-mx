@@ -1436,8 +1436,8 @@ omx__pull_handle_poll_dma_completions(struct dma_chan *dma_chan, dma_cookie_t la
 
 	status = dma_async_is_tx_complete(dma_chan, last, &done, &used);
 	if (status != DMA_IN_PROGRESS) {
-		BUG_ON(status != DMA_SUCCESS);
-		return DMA_SUCCESS;
+		BUG_ON(status != DMA_COMPLETE);
+		return DMA_COMPLETE;
 	}
 
 	dprintk(DMA, "last cookie still in progress (done %d used %d), cleaning up to %d\n",
@@ -1445,7 +1445,7 @@ omx__pull_handle_poll_dma_completions(struct dma_chan *dma_chan, dma_cookie_t la
 
 	/* do partial cleanup of dma_skb_queue */
 	while ((oldskb = skb_peek(queue)) &&
-	       (dma_async_is_complete(oldskb->dma_cookie, done, used) == DMA_SUCCESS)) {
+	       (dma_async_is_complete(oldskb->dma_cookie, done, used) == DMA_COMPLETE)) {
 		dprintk(DMA, "cleaning skb %p with cookie %d\n", oldskb, oldskb->dma_cookie);
 		__skb_dequeue(queue);
 		dev_kfree_skb(oldskb);
@@ -1473,7 +1473,7 @@ omx_pull_handle_poll_dma_completions(struct omx_pull_handle *handle)
 	dma_async_issue_pending(dma_chan);
 
 	if (omx__pull_handle_poll_dma_completions(dma_chan, handle->dma_copy_last_cookie, &handle->dma_copy_skb_queue)
-	    == DMA_SUCCESS) {
+	    == DMA_COMPLETE) {
 		/* All copies are already done, it's safe to free early-copied skbs now */
 		dprintk(DMA, "all cookies are ready\n");
 		__skb_queue_purge(&handle->dma_copy_skb_queue);

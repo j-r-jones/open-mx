@@ -330,6 +330,11 @@ static inline struct page *skb_frag_page(const skb_frag_t *frag) { return frag->
 #define dma_async_is_tx_complete dma_async_memcpy_complete
 #endif
 
+/* DMA_SUCCESS renamed into DMA_COMPLETE in 3.13 */
+#ifndef OMX_HAVE_DMA_COMPLETE
+#define DMA_COMPLETE DMA_SUCCESS
+#endif
+
 #endif /* __omx_hal_h__ */
 
 /*
