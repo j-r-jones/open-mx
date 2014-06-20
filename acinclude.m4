@@ -234,6 +234,19 @@ if test ! "$srcdir" -ef . ; then
 fi
 ])
 
+# OMX_SYMLINK_LIB_SOURCES()
+# -------------------------
+# Symlink lib source into each lib build subdirectory
+AC_DEFUN([OMX_SYMLINK_LIB_SOURCES],
+[
+AC_MSG_NOTICE(creating symlinks to sources from lib build subdirectories ...)
+for dir in lib32 lib32-debug lib64 lib64-debug; do
+   for file in $srcdir/libopen-mx/*.c ; do
+      filename=$(basename $file)
+      AC_CONFIG_LINKS(libopen-mx/$dir/$filename:libopen-mx/$filename)
+   done
+done
+])
 
 # OMX_FIND_KBUILD_CFLAGS_ARG(VAR, BUILD_TREE)
 # -------------------------------------------

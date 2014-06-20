@@ -69,4 +69,10 @@ noinst_HEADERS = dlmalloc.h omx_hal.h omx_lib.h	omx__mx_compat.h	\
 		 omx_raw.h omx_request.h omx_segments.h omx_threads.h	\
 		 omx_types.h omx_valgrind.h omx_list.h omx_debug.h
 
-EXTRA_DIST = omx__mx_lib.version
+EXTRA_DIST = omx_ack.c omx_debug.c omx_endpoint.c omx_error.c \
+	omx_get_info.c omx_init.c omx_large.c omx_lib.c \
+	omx_misc.c omx_partner.c omx_peer.c omx_raw.c   \
+	omx_recv.c omx_send.c omx_test.c \
+	omx__mx_compat.c omx__mx_raw_compat.c \
+	dlmalloc.c \
+	omx__mx_lib.version

@@ -42,22 +42,22 @@ endif
 
 libi_LTLIBRARIES = libopen-mx.la
 
-libopen_mx_la_SOURCES = ../omx_ack.c ../omx_debug.c ../omx_endpoint.c ../omx_error.c	\
-			../omx_get_info.c ../omx_init.c ../omx_large.c ../omx_lib.c	\
-			../omx_misc.c ../omx_partner.c ../omx_peer.c ../omx_raw.c	\
-			../omx_recv.c ../omx_send.c ../omx_test.c
+nodist_libopen_mx_la_SOURCES = omx_ack.c omx_debug.c omx_endpoint.c omx_error.c	\
+	omx_get_info.c omx_init.c omx_large.c omx_lib.c	\
+	omx_misc.c omx_partner.c omx_peer.c omx_raw.c	\
+	omx_recv.c omx_send.c omx_test.c
 
 
 # Build with MX ABI compatibility
 if OMX_MX_ABI_COMPAT
   AM_LDFLAGS		+= -Wl,--version-script,$(abs_srcdir)/../omx__mx_lib.version
-  libopen_mx_la_SOURCES += ../omx__mx_compat.c ../omx__mx_raw_compat.c
+  nodist_libopen_mx_la_SOURCES += omx__mx_compat.c omx__mx_raw_compat.c
 endif
 
 
 # Build with internal dlmalloc
 if OMX_LIB_DLMALLOC
-  libopen_mx_la_SOURCES += ../dlmalloc.c
+  nodist_libopen_mx_la_SOURCES += dlmalloc.c
 endif
 
 all-local:

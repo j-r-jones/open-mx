@@ -285,6 +285,7 @@ else
     AC_SUBST(OMX_LIB_THREAD_SAFETY, 0)
 fi
 
+OMX_SYMLINK_LIB_SOURCES
 
 # Library debugging configuration
 #################################
