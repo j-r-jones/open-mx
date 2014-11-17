@@ -1,10 +1,9 @@
-Open-MX 1.5.4 ()
-================
+Open-MX 1.5.4 (December 15th 2014)
+==================================
 
 Improvements from previous release:
 * Fix dmaengine build for 3.9 and 3.13 kernel changes.
 * Fix skbuff headers detection for 3.11 kernel.
-
 
 Caveats:
 * No background progression or retransmission is done if the application
