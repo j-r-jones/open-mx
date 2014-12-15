@@ -1,5 +1,5 @@
 # Open-MX
-# Copyright © inria 2007-2011 (see AUTHORS file)
+# Copyright © Inria 2007-2014 (see AUTHORS file)
 #
 # The development of this software has been funded by Myricom, Inc.
 #
@@ -19,7 +19,7 @@ AC_INIT(Open-MX,
 	1.5.3.90,
 	open-mx-devel@lists.gforge.inria.fr,
 	open-mx,
-	http://open-mx.org)
+	http://open-mx.gforge.inria.fr)
 
 AC_PREREQ(2.65)
 

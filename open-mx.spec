@@ -1,5 +1,5 @@
 # Open-MX
-# Copyright © inria 2007-2010 (see AUTHORS file)
+# Copyright © Inria 2007-2014 (see AUTHORS file)
 #
 # The development of this software has been funded by Myricom, Inc.
 #
@@ -29,7 +29,7 @@ BuildRoot: /var/tmp/%{name}-%{version}-build
 
 %description
 Open-MX is a high-performance implementation of the Myrinet Express message-passing stack over generic Ethernet networks. It provides application-level and wire-protocol compatibility with the native MXoE (Myrinet Express over Ethernet) stack.
-See http://open-mx.org/ for details.
+See http://open-mx.gforge.inria.fr/ for details.
 
 %prep
 %setup -n open-mx-%{version}
