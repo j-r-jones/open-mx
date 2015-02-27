@@ -1,5 +1,8 @@
+Open-MX 1.5.5 ()
+==================================
 
 
+* The primary website is now http://open-mx.gforge.inria.fr
 
 Caveats:
 * No background progression or retransmission is done if the application
