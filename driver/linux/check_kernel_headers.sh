@@ -299,7 +299,7 @@ else
 fi
 
 # DMA_SUCCESS renamed into DMA_COMPLETE in 3.13
-echo -n "  checling (in kernel headers) DMA_COMPLETE availability ... "
+echo -n "  checking (in kernel headers) DMA_COMPLETE availability ... "
 if grep DMA_COMPLETE ${LINUX_HDR}/include/linux/dmaengine.h > /dev/null ; then
   echo "#define OMX_HAVE_DMA_COMPLETE 1" >> ${TMP_CHECKS_NAME}
   echo yes
