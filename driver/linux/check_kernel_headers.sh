@@ -307,6 +307,15 @@ else
   echo no
 fi
 
+# signal_pending() moved to sched/signal.h in 4.11
+echo -n "  checking (in kernel headers) signal_pending availability in linux/sched/signal.h ... "
+if grep signal_pending ${LINUX_HDR}/include/linux/sched/signal.h > /dev/null 2>&1 ; then
+  echo "#define OMX_HAVE_SCHED_SIGNAL_PENDING 1" >> ${TMP_CHECKS_NAME}
+  echo yes
+else
+  echo no
+fi
+
 # add the footer
 echo "" >> ${TMP_CHECKS_NAME}
 echo "#endif /* __omx_checks_h__ */" >> ${TMP_CHECKS_NAME}

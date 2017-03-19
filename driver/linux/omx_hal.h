@@ -335,6 +335,11 @@ static inline struct page *skb_frag_page(const skb_frag_t *frag) { return frag->
 #define DMA_COMPLETE DMA_SUCCESS
 #endif
 
+/* signal_pending() moved to sched/signal.h in 4.11 */
+#ifdef OMX_HAVE_SCHED_SIGNAL_PENDING
+#include <linux/sched/signal.h>
+#endif
+
 #endif /* __omx_hal_h__ */
 
 /*
