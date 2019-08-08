@@ -590,15 +590,19 @@ omx_mmu_invalidate_handler(struct omx_endpoint *endpoint, void *data)
 	return 0;
 }
 
-static void
+static
+//void
+int
 omx_mmu_invalidate_range_start(struct mmu_notifier *mn, struct mm_struct *mm,
-			       unsigned long start, unsigned long end)
+			       unsigned long start, unsigned long end
+, bool blockable)
 {
 	unsigned long data[2] = { start, end };
 
 	dprintk(MMU, "invalidate range start 0x%lx-0x%lx\n", start, end);
 
 	omx_for_each_endpoint_in_mm(mm, omx_mmu_invalidate_handler, data);
+return 0;
 }
 
 static void
@@ -606,6 +610,13 @@ omx_mmu_invalidate_range_end(struct mmu_notifier *mn, struct mm_struct *mm,
 			     unsigned long start, unsigned long end)
 {
 	dprintk(MMU, "invalidate range end 0x%lx-0x%lx\n", start, end);
+}
+
+static void
+omx_mmu_invalidate_range(struct mmu_notifier *mn, struct mm_struct *mm,
+			 unsigned long start, unsigned long end)
+{
+	dprintk(MMU, "invalidate range 0x%lx-0x%lx\n", start, end);
 }
 
 static void
@@ -622,9 +633,10 @@ omx_mmu_release(struct mmu_notifier *mn, struct mm_struct *mm)
 }
 
 static const struct mmu_notifier_ops omx_mmu_ops = {
-	.invalidate_page	= omx_mmu_invalidate_page,
-        .invalidate_range_start	= omx_mmu_invalidate_range_start,
-        .invalidate_range_end	= omx_mmu_invalidate_range_end,
+//	.invalidate_page	= omx_mmu_invalidate_page,
+	.invalidate_range	= omx_mmu_invalidate_range,
+	.invalidate_range_start	= omx_mmu_invalidate_range_start,
+	.invalidate_range_end	= omx_mmu_invalidate_range_end,
         .release		= omx_mmu_release,
 };
 #endif /* CONFIG_MMU_NOTIFIER */
