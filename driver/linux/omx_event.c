@@ -84,6 +84,7 @@ omx_event_delivery_check(void)
 struct omx_event_waiter {
 	struct list_head list_elt;
 	struct task_struct *task;
+	struct timer_list timer;
 	struct rcu_head rcu_head;
 	uint8_t status;
 };
@@ -104,9 +105,17 @@ omx_wakeup_waiter_list(struct omx_endpoint *endpoint,
 }
 
 static void
+#ifdef HAVE_TIMER_SETUP
+omx_wakeup_on_timeout_handler(struct timer_list *t)
+#else
 omx_wakeup_on_timeout_handler(unsigned long data)
+#endif
 {
+#ifdef HAVE_TIMER_SETUP
+	struct omx_event_waiter *waiter = from_timer(waiter, t, timer);
+#else
 	struct omx_event_waiter *waiter = (struct omx_event_waiter*) data;
+#endif
 
 	/* wakeup with the timeout status */
 	waiter->status = OMX_CMD_WAIT_EVENT_STATUS_TIMEOUT;
@@ -114,9 +123,17 @@ omx_wakeup_on_timeout_handler(unsigned long data)
 }
 
 static void
+#ifdef HAVE_TIMER_SETUP
+omx_wakeup_on_progress_timeout_handler(struct timer_list *t)
+#else
 omx_wakeup_on_progress_timeout_handler(unsigned long data)
+#endif
 {
+#ifdef HAVE_TIMER_SETUP
+	struct omx_event_waiter *waiter = from_timer(waiter, t, timer);
+#else
 	struct omx_event_waiter *waiter = (struct omx_event_waiter*) data;
+#endif
 
 	/* wakeup with the progress status */
 	waiter->status = OMX_CMD_WAIT_EVENT_STATUS_PROGRESS;
@@ -434,14 +451,17 @@ omx_ioctl_wait_event(struct omx_endpoint * endpoint, void __user * uparam)
 {
 	struct omx_cmd_wait_event cmd;
 	struct omx_event_waiter * waiter;
-	struct timer_list timer;
 	int err = 0;
 
 	/* lib-progression-requested timeout */
 	uint64_t wakeup_jiffies = endpoint->userdesc->wakeup_jiffies;
 
 	/* timer, either from the ioctl or from the lib-progression-requested timeout */
+#ifdef HAVE_TIMER_SETUP
+	void (*timer_handler)(struct timer_list *) = NULL;
+#else
 	void (*timer_handler)(unsigned long) = NULL;
+#endif
 	uint64_t timer_jiffies = 0;
 
 	/* cache current jiffies */
@@ -514,9 +534,13 @@ omx_ioctl_wait_event(struct omx_endpoint * endpoint, void __user * uparam)
 			waiter->status = OMX_CMD_WAIT_EVENT_STATUS_RACE;
 			goto wakeup;
 		}
-		setup_timer(&timer, timer_handler, (unsigned long) waiter);
+#ifdef HAVE_TIMER_SETUP
+		timer_setup(&waiter->timer, timer_handler, 0);
+#else
+		setup_timer(&waiter->timer, timer_handler, (unsigned long) waiter);
+#endif
 		/* timer not pending yet, use the regular mod_timer() */
-		mod_timer(&timer, timer_jiffies);
+		mod_timer(&waiter->timer, timer_jiffies);
 		dprintk(EVENT, "wait event timer setup at %lld (now is %lld)\n",
 			(unsigned long long) timer_jiffies, (unsigned long long) current_jiffies);
 	}
@@ -535,7 +559,7 @@ omx_ioctl_wait_event(struct omx_endpoint * endpoint, void __user * uparam)
 
 	/* remove the timer */
 	if (timer_handler)
-		del_singleshot_timer_sync(&timer);
+		del_singleshot_timer_sync(&waiter->timer);
 
  wakeup:
 	__set_current_state(TASK_RUNNING); /* no need to serialize with below, __set is enough */

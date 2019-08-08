@@ -77,14 +77,23 @@ else
   exit -1
 fi
 
-# setup_timer appeared in 2.6.15
-echo -n "  checking (in kernel headers) setup_timer availability ... "
-if grep setup_timer ${LINUX_HDR}/include/linux/timer.h > /dev/null ; then
+# timer_setup() added in v4.14-rc3, setup_timer() removed in 4.14
+echo -n "  checking (in kernel headers) timer_setup() availability ... "
+if grep timer_setup ${LINUX_HDR}/include/linux/timer.h > /dev/null ; then
+  echo "#define HAVE_TIMER_SETUP 1" >> ${TMP_CHECKS_NAME}
   echo yes
 else
-  echo "no, this kernel isn't supported"
-  exit -1
+  echo no
+  # setup_timer appeared in 2.6.15
+  echo -n "  checking (in kernel headers) setup_timer availability ... "
+  if grep setup_timer ${LINUX_HDR}/include/linux/timer.h > /dev/null ; then
+    echo yes
+  else
+    echo "no, this kernel isn't supported"
+    exit -1
+  fi
 fi
+
 
 # kzalloc appeared in 2.6.14
 echo -n "  checking (in kernel headers) kzalloc availability ... "

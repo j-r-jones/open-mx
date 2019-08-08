@@ -145,7 +145,12 @@ struct omx_pull_handle {
 	struct omx_hdr pkt_hdr;
 };
 
-static void omx_pull_handle_timeout_handler(unsigned long data);
+static void
+#ifdef HAVE_TIMER_SETUP
+omx_pull_handle_timeout_handler(struct timer_list *t);
+#else
+omx_pull_handle_timeout_handler(unsigned long data);
+#endif
 
 #ifdef OMX_HAVE_DMA_ENGINE
 static void omx_pull_handle_poll_dma_completions(struct omx_pull_handle *handle);
@@ -646,8 +651,12 @@ omx_pull_handle_create(struct omx_endpoint * endpoint,
 		goto out_with_slot;
 
 	/* init timer */
+#ifdef HAVE_TIMER_SETUP
+	timer_setup(&handle->retransmit_timer, omx_pull_handle_timeout_handler, 0);
+#else
 	setup_timer(&handle->retransmit_timer, omx_pull_handle_timeout_handler,
 		    (unsigned long) handle);
+#endif
 	omx_endpoint_reacquire(endpoint); /* keep a reference for the timer */
 
 	/* queue in the endpoint list */
@@ -1050,9 +1059,17 @@ omx_progress_pull_on_handle_timeout_handle_locked(struct omx_iface * iface,
  * Running as long as status is OMX_PULL_HANDLE_STATUS_OK.
  */
 static void
+#ifdef HAVE_TIMER_SETUP
+omx_pull_handle_timeout_handler(struct timer_list *t)
+#else
 omx_pull_handle_timeout_handler(unsigned long data)
+#endif
 {
+#ifdef HAVE_TIMER_SETUP
+	struct omx_pull_handle * handle = from_timer(handle, t, retransmit_timer);
+#else
 	struct omx_pull_handle * handle = (void *) data;
+#endif
 	struct omx_endpoint * endpoint = handle->endpoint;
 	struct omx_iface * iface = endpoint->iface;
 

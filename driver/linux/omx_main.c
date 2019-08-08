@@ -209,7 +209,11 @@ struct omx_driver_desc * omx_driver_userdesc = NULL; /* exported read-only to us
 static struct timer_list omx_driver_userdesc_update_timer;
 
 static void
+#ifdef HAVE_TIMER_SETUP
+omx_driver_userdesc_update_handler(struct timer_list *t)
+#else
 omx_driver_userdesc_update_handler(unsigned long data)
+#endif
 {
 	u64 current_jiffies = get_jiffies_64();
 	omx_driver_userdesc->jiffies = current_jiffies;
@@ -448,7 +452,11 @@ omx_init(void)
 	}
 
 	/* setup a timer to update jiffies in the driver user descriptor */
+#ifdef HAVE_TIMER_SETUP
+	timer_setup(&omx_driver_userdesc_update_timer, omx_driver_userdesc_update_handler, 0);
+#else
 	setup_timer(&omx_driver_userdesc_update_timer, omx_driver_userdesc_update_handler, 0);
+#endif
 	/* timer not pending yet, use the regular mod_timer() */
 	mod_timer(&omx_driver_userdesc_update_timer, get_jiffies_64() + 1);
 

@@ -869,7 +869,11 @@ omx_host_query_workfunc(omx_work_struct_data_t data)
 }
 
 static void
+#ifdef HAVE_TIMER_SETUP
+omx_host_query_timer_handler(struct timer_list *t)
+#else
 omx_host_query_timer_handler(unsigned long data)
+#endif
 {
 	schedule_work(&omx_host_query_work);
 }
@@ -1191,7 +1195,11 @@ omx_peers_init(void)
 	/* setup a deferred work to host query the peer list */
 	OMX_INIT_WORK(&omx_host_query_work, omx_host_query_workfunc, NULL);
 	/* setup a timer to schedule the above work */
+#ifdef HAVE_TIMER_SETUP
+	timer_setup(&omx_host_query_timer, omx_host_query_timer_handler, 0);
+#else
 	setup_timer(&omx_host_query_timer, omx_host_query_timer_handler, 0);
+#endif
 
 	return 0;
 
