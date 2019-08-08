@@ -100,8 +100,8 @@ extern void omx_for_each_endpoint(int (*handler)(struct omx_endpoint *endpoint, 
 extern void omx_for_each_endpoint_in_mm(struct mm_struct *mm, int (*handler)(struct omx_endpoint *endpoint, void *data), void *data);
 
 extern int omx_ifnames_get(char *buf, size_t buflen, char sep);
-extern int omx_ifnames_get_kp(char *buf, struct kernel_param *kp);
-extern int omx_ifnames_set_kp(const char *buf, struct kernel_param *kp);
+extern int omx_ifnames_get_kp(char *buf, const struct kernel_param *kp);
+extern int omx_ifnames_set_kp(const char *buf, const struct kernel_param *kp);
 
 extern int omx_ifaces_get_count(void);
 extern int omx_iface_get_info(uint32_t board_index, struct omx_board_info *info);

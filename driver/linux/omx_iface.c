@@ -671,7 +671,7 @@ omx_ifnames_get(char *buf, size_t buflen, char sep)
 }
 
 int
-omx_ifnames_get_kp(char *buf, struct kernel_param *kp)
+omx_ifnames_get_kp(char *buf, const struct kernel_param *kp)
 {
 	return omx_ifnames_get(buf, PAGE_SIZE, '\n') + 1 /* ending '\0' */;
 }
@@ -796,7 +796,7 @@ omx_ifaces_store(const char *buf)
 static char *omx_delayed_ifnames = NULL;
 
 int
-omx_ifnames_set_kp(const char *buf, struct kernel_param *kp)
+omx_ifnames_set_kp(const char *buf, const struct kernel_param *kp)
 {
 	if (omx_ifaces) {
 		/* module parameter values are guaranteed to be \0-terminated */

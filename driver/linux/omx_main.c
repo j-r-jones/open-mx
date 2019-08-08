@@ -43,13 +43,13 @@
 /* allow module parameters to be ignored when not supporting */
 
 static int __maybe_unused
-omx_unavail_module_param_set(const char *buf, struct kernel_param *kp)
+omx_unavail_module_param_set(const char *buf, const struct kernel_param *kp)
 {
 	printk(KERN_INFO "Open-MX: WARNING: %s\n", (char*) kp->arg);
 	return 0;
 }
 static int __maybe_unused
-omx_unavail_module_param_get(char *buffer, struct kernel_param *kp)
+omx_unavail_module_param_get(char *buffer, const struct kernel_param *kp)
 {                                                               \
 	return sprintf(buffer, "0");
 }
