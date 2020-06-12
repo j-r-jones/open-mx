@@ -1,3 +1,8 @@
+See also the project website at http://open-mx.gitlabpages.inria.fr
+or the gitlab repository at http://gitlab.inria.fr/open-mx/open-mx
+
+
+
 Contents:
    I. Quick Start
   II. Building and Installing
@@ -12,7 +17,7 @@ Contents:
     b. ABI and API-compatibility
 
 For more details, see the FAQ in the doc/ directory or online at
-  http://open-mx.gforge.inria.fr/FAQ/
+  http://open-mx.gitlabpages.inria.fr/FAQ/
 See also REPORTING-BUGS for problems.
 
 

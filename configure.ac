@@ -19,7 +19,7 @@ AC_INIT(Open-MX,
 	1.5.4.90,
 	open-mx-devel@lists.gforge.inria.fr,
 	open-mx,
-	http://open-mx.gforge.inria.fr)
+	http://gitlab.inria.fr/open-mx/open-mx)
 
 AC_PREREQ(2.65)
 

@@ -2,7 +2,7 @@ Open-MX 1.5.5 ()
 ==================================
 
 
-* The primary website is now http://open-mx.gforge.inria.fr
+* The primary website is now http://open-mx.gitlabpages.inria.fr
 
 Caveats:
 * No background progression or retransmission is done if the application
@@ -474,7 +474,7 @@ The Many-Requests Release.
 Major Enhancements:
 * Fixup management of requests in case of resource shortage to prevent
   some deadlocks and other wrong behaviors.
-* Add a FAQ (also available online at http://open-mx.gforge.inria.fr/FAQ/)
+* Add a FAQ (also available online at http://open-mx.gitlabpages.inria.fr/FAQ/)
   containing most of the old README and much more.
 
 Other improvements from previous release:

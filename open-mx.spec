@@ -29,7 +29,7 @@ BuildRoot: /var/tmp/%{name}-%{version}-build
 
 %description
 Open-MX is a high-performance implementation of the Myrinet Express message-passing stack over generic Ethernet networks. It provides application-level and wire-protocol compatibility with the native MXoE (Myrinet Express over Ethernet) stack.
-See http://open-mx.gforge.inria.fr/ for details.
+See http://open-mx.gitlabpages.inria.fr for details.
 
 %prep
 %setup -n open-mx-%{version}
