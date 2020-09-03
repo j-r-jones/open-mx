@@ -1,6 +1,6 @@
 # :warning: The project webpage is at http://open-mx.gitlabpages.inria.fr
 
-## :warning: See also REPORTING-BUGS for questions and problems.
+## :warning: For questions and problems, see 'Reporting Bugs' at the end of this file.
 
 
 # Quick Start
@@ -307,3 +307,35 @@ a compatibility layer which enables:
 * To build applications that were written for the MX API
 This compatibility is enabled by default and has a very low overhead since
 it only involves going across basic conversion routines.
+
+
+# Reporting Bugs
+
+In case of problem, make sure you read the README first :)
+Please also look at the FAQ in the doc/ directory or online at
+http://open-mx.gitlabpages.inria.fr/FAQ/
+
+Bugs should be reported on http://gitlab.inria.fr/open-mx/open-mx
+or sent to open-mx-devel@lists.gforge.inria.fr .
+Questions may be asked there too.
+
+When reporting a problem, make sure you include:
+* the version number of Open-MX
+  (or the output of `git show` if you checked out the GIT repository)
+* the output (as root) of
+  + `cat /dev/open-mx`
+  + `omx_info`
+* a description of the ethernet interfaces that you are trying
+  to use, with the whole outputs (as root) of:
+  + `lspci`
+  + `lsmod`
+  + `dmesg`
+  + `ifconfig -a`
+  + `ethtool -c <iface>`
+* a description of your network topology:
+  + how are the interfaces connected?
+  + through what switch(es)? is the MTU configured there too?
+* the whole output of the program if a program did not work
+  as expected
+* the whole output of `configure`, `config.log` and `omx_checks.h`,
+  and of the compilation if reporting a build problem
