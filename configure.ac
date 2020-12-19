@@ -17,7 +17,7 @@
 
 AC_INIT(Open-MX,
 	1.5.4.90,
-	open-mx-devel@lists.gforge.inria.fr,
+	open-mx@inria.fr,
 	open-mx,
 	http://gitlab.inria.fr/open-mx/open-mx)
 

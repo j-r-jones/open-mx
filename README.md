@@ -316,7 +316,7 @@ Please also look at the FAQ in the doc/ directory or online at
 http://open-mx.gitlabpages.inria.fr/FAQ/
 
 Bugs should be reported on http://gitlab.inria.fr/open-mx/open-mx
-or sent to open-mx-devel@lists.gforge.inria.fr .
+or sent to open-mx@inria.fr .
 Questions may be asked there too.
 
 When reporting a problem, make sure you include:
